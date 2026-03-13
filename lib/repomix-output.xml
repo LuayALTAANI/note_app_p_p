@@ -1,0 +1,5170 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+data/app_database.dart
+data/dao/assets_dao.dart
+data/dao/assets_dao.g.dart
+data/dao/blocks_dao.dart
+data/dao/blocks_dao.g.dart
+data/dao/folders_dao.dart
+data/dao/folders_dao.g.dart
+data/dao/items_dao.dart
+data/dao/items_dao.g.dart
+data/providers.dart
+main.dart
+routing/app_router.dart
+storage/file_manager.dart
+ui/common/colors.dart
+ui/common/confirm_dialog.dart
+ui/common/folder_color_picker.dart
+ui/common/snackbar.dart
+ui/common/video_meta.dart
+ui/screens/folder/body/folder_body.dart
+ui/screens/folder/dialogs/folder_rename_dialog.dart
+ui/screens/folder/folder_actions.dart
+ui/screens/folder/folder_add_sheet.dart
+ui/screens/folder/folder_app_bar.dart
+ui/screens/folder/folder_screen.dart
+ui/screens/folder/list/folder_list_normal.dart
+ui/screens/folder/list/folder_list_reorder.dart
+ui/screens/home_screen.dart
+ui/screens/item/item_actions.dart
+ui/screens/item/item_block_meta.dart
+ui/screens/item/item_details_screen.dart
+ui/screens/item/item_rename_dialog.dart
+ui/screens/item/item_share.dart
+ui/screens/item/widgets/detail_block_tile.dart
+ui/screens/item/widgets/full_screen_note_editor.dart
+ui/screens/item/widgets/main_media_card.dart
+ui/screens/item/widgets/media_preview.dart
+ui/screens/item/widgets/note_preview_edit.dart
+ui/screens/item/widgets/preview_widget.dart
+ui/screens/local_video_screen.dart
+ui/screens/media_viewer_screen.dart
+ui/screens/settings_screen.dart
+ui/screens/youtube_block_viewer_screen.dart
+ui/widgets/audio_player_widget.dart
+ui/widgets/pdf_viewer_widget.dart
+ui/widgets/photo_viewer_widget.dart
+ui/widgets/video_player_widget.dart
+ui/widgets/youtube_focused_player.dart
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path="data/app_database.dart">
+import 'dart:io';
+
+import 'package:drift/drift.dart';
+import 'package:drift/native.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+import 'dao/folders_dao.dart';
+import 'dao/items_dao.dart';
+import 'dao/blocks_dao.dart';
+import 'dao/assets_dao.dart';
+
+part 'app_database.g.dart';
+
+class Folders extends Table {
+  TextColumn get id => text()(); // UUID, and "root" for root folder
+  TextColumn get parentId => text().nullable()();
+  TextColumn get parentItemId => text().nullable()();
+  TextColumn get name => text()();
+  IntColumn get color => integer().withDefault(const Constant(0xFF9E9E9E))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get sortMode => text().withDefault(const Constant('name'))();
+  IntColumn get orderIndex => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class Items extends Table {
+  TextColumn get id => text()(); // UUID
+  TextColumn get folderId => text()(); // points to folder.id ("root" allowed)
+
+  /// 'note' | 'photo' | 'video' | 'voice' | 'pdf'
+  TextColumn get type => text()();
+
+  TextColumn get title => text().nullable()();
+
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+
+  IntColumn get orderIndex => integer().withDefault(const Constant(0))();
+
+  TextColumn get mainType => text()();
+
+  /// for note -> text, for media -> assetId OR youtube url (if youtube-only)
+  TextColumn get mainData => text()();
+
+  /// NEW: JSON meta (youtubeUrl, playMode, etc.)
+  TextColumn get meta => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class DetailBlocks extends Table {
+  TextColumn get id => text()(); // UUID
+  TextColumn get itemId => text()(); // points to item.id
+  TextColumn get type => text()(); // 'text' | 'photo' | 'video' | 'voice' | 'pdf' | 'folder'
+  IntColumn get orderIndex => integer().withDefault(const Constant(0))();
+  DateTimeColumn get createdAt => dateTime()();
+  DateTimeColumn get updatedAt => dateTime()();
+  TextColumn get data => text()(); // for text -> text, for media -> assetId, for folder -> folderId
+  TextColumn get meta => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+class FileAssets extends Table {
+  TextColumn get id => text()(); // UUID
+  TextColumn get path => text()(); // app-private file path
+  TextColumn get mimeType => text().nullable()();
+  DateTimeColumn get createdAt => dateTime()();
+  IntColumn get sizeBytes => integer().nullable()();
+  TextColumn get thumbnailPath => text().nullable()();
+  TextColumn get checksum => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+@DriftDatabase(
+  tables: [Folders, Items, DetailBlocks, FileAssets],
+  daos: [FoldersDao, ItemsDao, BlocksDao, AssetsDao],
+)
+class AppDatabase extends _$AppDatabase {
+  AppDatabase() : super(_openConnection());
+
+  @override
+  int get schemaVersion => 5;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) async {
+          await m.createAll();
+
+          final now = DateTime.now();
+          await into(folders).insert(
+            FoldersCompanion.insert(
+              id: 'root',
+              parentId: const Value(null),
+              parentItemId: const Value(null),
+              name: 'Root',
+              createdAt: now,
+              updatedAt: now,
+              sortMode: const Value('name'),
+              orderIndex: const Value(0),
+            ),
+          );
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 4) {
+            await m.addColumn(folders, folders.color);
+          }
+
+          if (from < 5) {
+            await m.addColumn(items, items.meta);
+          }
+
+          if (from == 1) {
+            await m.addColumn(folders, folders.sortMode);
+            await m.addColumn(folders, folders.orderIndex);
+
+            final root = await (select(
+              folders,
+            )..where((t) => t.id.equals('root'))).getSingleOrNull();
+            if (root == null) {
+              final now = DateTime.now();
+              await into(folders).insert(
+                FoldersCompanion.insert(
+                  id: 'root',
+                  parentId: const Value(null),
+                  parentItemId: const Value(null),
+                  name: 'Root',
+                  createdAt: now,
+                  updatedAt: now,
+                  sortMode: const Value('name'),
+                  orderIndex: const Value(0),
+                ),
+              );
+            }
+
+            await (update(folders)
+                  ..where((t) =>
+                      t.parentId.isNull() & t.id.isNotIn(const ['root'])))
+                .write(const FoldersCompanion(parentId: Value('root')));
+          }
+        },
+      );
+}
+
+LazyDatabase _openConnection() {
+  return LazyDatabase(() async {
+    final dir = await getApplicationDocumentsDirectory();
+    final file = File(p.join(dir.path, 'note_app_pp.sqlite'));
+    return NativeDatabase(file);
+  });
+}
+</file>
+
+<file path="data/dao/assets_dao.dart">
+import 'package:drift/drift.dart';
+import '../app_database.dart';
+
+part 'assets_dao.g.dart';
+
+@DriftAccessor(tables: [FileAssets])
+class AssetsDao extends DatabaseAccessor<AppDatabase> with _$AssetsDaoMixin {
+  AssetsDao(super.db);
+
+  Future<FileAsset?> getById(String id) => (select(fileAssets)..where((t) => t.id.equals(id))).getSingleOrNull();
+  Future<void> upsertAsset(FileAssetsCompanion data) => into(fileAssets).insertOnConflictUpdate(data);
+  Future<void> deleteAsset(String id) async {
+    await (delete(fileAssets)..where((t) => t.id.equals(id))).go();
+  }
+}
+</file>
+
+<file path="data/dao/assets_dao.g.dart">
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'assets_dao.dart';
+
+// ignore_for_file: type=lint
+mixin _$AssetsDaoMixin on DatabaseAccessor<AppDatabase> {
+  $FileAssetsTable get fileAssets => attachedDatabase.fileAssets;
+}
+</file>
+
+<file path="data/dao/blocks_dao.dart">
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
+import '../app_database.dart';
+
+part 'blocks_dao.g.dart';
+
+final _uuid = const Uuid();
+
+@DriftAccessor(tables: [DetailBlocks])
+class BlocksDao extends DatabaseAccessor<AppDatabase> with _$BlocksDaoMixin {
+  BlocksDao(super.db);
+
+  Stream<List<DetailBlock>> watchBlocksForItem(String itemId) {
+    return (select(detailBlocks)
+          ..where((t) => t.itemId.equals(itemId))
+          ..orderBy([(t) => OrderingTerm(expression: t.orderIndex)]))
+        .watch();
+  }
+
+  Future<void> insertTextBlock(String itemId, int orderIndex) {
+    final now = DateTime.now();
+    return into(detailBlocks).insert(
+      DetailBlocksCompanion.insert(
+        id: _uuid.v4(),
+        itemId: itemId,
+        type: 'text',
+        data: '',
+        orderIndex: Value(orderIndex),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  Future<void> insertMediaBlock(
+    String itemId,
+    String type,
+    String assetId,
+    int orderIndex,
+  ) {
+    final now = DateTime.now();
+    return into(detailBlocks).insert(
+      DetailBlocksCompanion.insert(
+        id: _uuid.v4(),
+        itemId: itemId,
+        type: type,
+        data: assetId,
+        orderIndex: Value(orderIndex),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  Future<void> insertFolderBlock(String itemId, String folderId, int orderIndex) {
+    final now = DateTime.now();
+    return into(detailBlocks).insert(
+      DetailBlocksCompanion.insert(
+        id: _uuid.v4(),
+        itemId: itemId,
+        type: 'folder',
+        data: folderId,
+        orderIndex: Value(orderIndex),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  /// ✅ Fix: detail block accepts video links reliably (no insert+refetch race).
+  /// Inserts a YouTube-only video block: data='' and meta contains youtubeUrl.
+  Future<void> insertYoutubeVideoBlock(
+    String itemId,
+    String youtubeUrl,
+    int orderIndex,
+  ) {
+    final now = DateTime.now();
+    return into(detailBlocks).insert(
+      DetailBlocksCompanion.insert(
+        id: _uuid.v4(),
+        itemId: itemId,
+        type: 'video',
+        data: '',
+        meta: Value(jsonEncode({'youtubeUrl': youtubeUrl.trim()})),
+        orderIndex: Value(orderIndex),
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  Future<void> updateText(String blockId, String newText) {
+    return (update(detailBlocks)..where((t) => t.id.equals(blockId))).write(
+      DetailBlocksCompanion(
+        data: Value(newText),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> deleteBlock(String id) {
+    return (delete(detailBlocks)..where((t) => t.id.equals(id))).go();
+  }
+
+  Future<void> reorderBlocks(String itemId, List<String> orderedBlockIds) async {
+    await transaction(() async {
+      for (var i = 0; i < orderedBlockIds.length; i++) {
+        final id = orderedBlockIds[i];
+        await (update(detailBlocks)..where((t) => t.id.equals(id) & t.itemId.equals(itemId))).write(
+          DetailBlocksCompanion(
+            orderIndex: Value(i),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+    });
+  }
+}
+</file>
+
+<file path="data/dao/blocks_dao.g.dart">
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'blocks_dao.dart';
+
+// ignore_for_file: type=lint
+mixin _$BlocksDaoMixin on DatabaseAccessor<AppDatabase> {
+  $DetailBlocksTable get detailBlocks => attachedDatabase.detailBlocks;
+}
+</file>
+
+<file path="data/dao/folders_dao.dart">
+import 'package:drift/drift.dart';
+import 'package:uuid/uuid.dart';
+import '../app_database.dart';
+
+part 'folders_dao.g.dart';
+
+final _uuid = const Uuid();
+
+@DriftAccessor(tables: [Folders])
+class FoldersDao extends DatabaseAccessor<AppDatabase> with _$FoldersDaoMixin {
+  FoldersDao(super.db);
+
+  Stream<Folder?> watchById(String id) {
+    return (select(folders)..where((t) => t.id.equals(id))).watchSingleOrNull();
+  }
+
+  Future<void> ensureRootFolder() async {
+    final existing = await (select(
+      folders,
+    )..where((t) => t.id.equals('root'))).getSingleOrNull();
+    if (existing != null) return;
+
+    final now = DateTime.now();
+    await into(folders).insert(
+      FoldersCompanion.insert(
+        id: 'root',
+        parentId: const Value(null),
+        name: 'Root',
+        createdAt: now,
+        updatedAt: now,
+        sortMode: const Value('name'),
+        orderIndex: const Value(0),
+      ),
+    );
+  }
+
+  Future<void> migrateTopLevelFoldersUnderRoot() async {
+    await ensureRootFolder();
+    await (update(folders)..where(
+          (t) =>
+              t.parentId.isNull() &
+              t.parentItemId.isNull() &
+              t.id.isNotIn(const ['root']),
+        ))
+        .write(const FoldersCompanion(parentId: Value('root')));
+  }
+
+  Future<void> upsertFolder(FoldersCompanion data) async {
+    await into(folders).insertOnConflictUpdate(data);
+  }
+
+  /// Create a new folder. Use [parentId] for normal nested folders, or [parentItemId]
+  /// when the folder is attached to an Item as a detail block.
+  Future<String> createFolder({
+    required String name,
+    String? parentId,
+    String? parentItemId,
+  }) async {
+    final id = _uuid.v4();
+    final now = DateTime.now();
+
+    await into(folders).insert(
+      FoldersCompanion.insert(
+        id: id,
+        parentId: Value(parentId),
+        parentItemId: Value(parentItemId),
+        name: name,
+        createdAt: now,
+        updatedAt: now,
+        sortMode: const Value('name'),
+        orderIndex: const Value(0),
+      ),
+    );
+
+    return id;
+  }
+
+  /// Get folders that belong directly to an Item (detail-block folders).
+  Future<List<Folder>> getFoldersForItem(String itemId) {
+    return (select(folders)..where((t) => t.parentItemId.equals(itemId))).get();
+  }
+
+  /// Delete a folder tree (folder + all descendant folders + all items + all blocks under them).
+  Future<void> deleteFolderTree(String rootFolderId) async {
+    await transaction(() async {
+      // BFS to collect folder ids
+      final allFolderIds = <String>[rootFolderId];
+      var cursor = 0;
+      while (cursor < allFolderIds.length) {
+        final current = allFolderIds[cursor++];
+        final children = await (select(
+          folders,
+        )..where((t) => t.parentId.equals(current))).get();
+        for (final c in children) {
+          if (!allFolderIds.contains(c.id)) allFolderIds.add(c.id);
+        }
+      }
+
+      // Collect item ids under these folders
+      final itemsRows = await (select(
+        db.items,
+      )..where((t) => t.folderId.isIn(allFolderIds))).get();
+      final itemIds = itemsRows.map((e) => e.id).toList();
+
+      if (itemIds.isNotEmpty) {
+        await (delete(
+          db.detailBlocks,
+        )..where((t) => t.itemId.isIn(itemIds))).go();
+        await (delete(db.items)..where((t) => t.id.isIn(itemIds))).go();
+      }
+
+      // Delete folders (children first doesn't matter because we're deleting by IN)
+      await (delete(folders)..where((t) => t.id.isIn(allFolderIds))).go();
+    });
+  }
+
+  Future<void> setSortMode(String folderId, String mode) async {
+    await (update(folders)..where((t) => t.id.equals(folderId))).write(
+      FoldersCompanion(sortMode: Value(mode), updatedAt: Value(DateTime.now())),
+    );
+  }
+
+  Stream<List<Folder>> watchChildren(String parentId, String sortMode) {
+    final q = select(folders)
+      ..where((t) => t.parentId.equals(parentId) & t.parentItemId.isNull());
+
+    if (sortMode == 'date') {
+      q.orderBy([(t) => OrderingTerm.desc(t.createdAt)]);
+    } else if (sortMode == 'free') {
+      q.orderBy([(t) => OrderingTerm.asc(t.orderIndex)]);
+    } else {
+      // name
+      q.orderBy([(t) => OrderingTerm.asc(t.name)]);
+    }
+
+    return q.watch();
+  }
+
+  Future<void> reorderFolders(List<String> orderedIds) async {
+    await transaction(() async {
+      for (var i = 0; i < orderedIds.length; i++) {
+        await (update(folders)..where((t) => t.id.equals(orderedIds[i]))).write(
+          FoldersCompanion(orderIndex: Value(i)),
+        );
+      }
+    });
+  }
+
+  Future<void> deleteFolderIfEmpty(String folderId) async {
+    final childrenCount =
+        await (select(folders)..where((t) => t.parentId.equals(folderId)))
+            .get()
+            .then((rows) => rows.length);
+
+    final itemsCount =
+        await (select(db.items)..where((t) => t.folderId.equals(folderId)))
+            .get()
+            .then((rows) => rows.length);
+
+    if (childrenCount > 0 || itemsCount > 0) {
+      throw Exception('Folder must be empty to delete.');
+    }
+
+    await (delete(folders)..where((t) => t.id.equals(folderId))).go();
+  }
+
+  Future<void> updateColor(String folderId, int color) async {
+    await (update(folders)..where((t) => t.id.equals(folderId))).write(
+      FoldersCompanion(color: Value(color), updatedAt: Value(DateTime.now())),
+    );
+  }
+
+  Future<void> renameFolder(String folderId, String newName) async {
+    await (update(folders)..where((t) => t.id.equals(folderId))).write(
+      FoldersCompanion(name: Value(newName), updatedAt: Value(DateTime.now())),
+    );
+  }
+}
+</file>
+
+<file path="data/dao/folders_dao.g.dart">
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'folders_dao.dart';
+
+// ignore_for_file: type=lint
+mixin _$FoldersDaoMixin on DatabaseAccessor<AppDatabase> {
+  $FoldersTable get folders => attachedDatabase.folders;
+}
+</file>
+
+<file path="data/dao/items_dao.dart">
+import 'package:drift/drift.dart';
+import '../app_database.dart';
+
+part 'items_dao.g.dart';
+
+@DriftAccessor(tables: [Items])
+class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
+  ItemsDao(super.db);
+
+  Future<Item?> getById(String id) {
+    return (select(items)..where((t) => t.id.equals(id))).getSingleOrNull();
+  }
+
+  Stream<Item?> watchById(String id) {
+    return (select(items)..where((t) => t.id.equals(id))).watchSingleOrNull();
+  }
+
+  Stream<List<Item>> watchItemsInFolder(String folderId, String sortMode) {
+    final q = select(items)..where((t) => t.folderId.equals(folderId));
+
+    if (sortMode == 'date') {
+      q.orderBy([
+        (t) => OrderingTerm(expression: t.createdAt, mode: OrderingMode.desc)
+      ]);
+    } else if (sortMode == 'free') {
+      q.orderBy([(t) => OrderingTerm(expression: t.orderIndex)]);
+    } else {
+      q.orderBy([(t) => OrderingTerm(expression: t.title)]);
+    }
+
+    return q.watch();
+  }
+
+  Future<void> insertItem(ItemsCompanion companion) {
+    return into(items).insert(companion);
+  }
+
+  Future<void> deleteItem(String id) async {
+    await transaction(() async {
+      await (delete(db.detailBlocks)..where((t) => t.itemId.equals(id))).go();
+
+      final roots = await db.foldersDao.getFoldersForItem(id);
+      for (final f in roots) {
+        await db.foldersDao.deleteFolderTree(f.id);
+      }
+
+      await (delete(items)..where((t) => t.id.equals(id))).go();
+    });
+  }
+
+  Future<void> updateTitle(String itemId, String newTitle) {
+    return (update(items)..where((t) => t.id.equals(itemId))).write(
+      ItemsCompanion(
+        title: Value(newTitle),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> updateMainData(String itemId, String newMainData) {
+    return (update(items)..where((t) => t.id.equals(itemId))).write(
+      ItemsCompanion(
+        mainData: Value(newMainData),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> updateMeta(String itemId, String? metaJson) {
+    return (update(items)..where((t) => t.id.equals(itemId))).write(
+      ItemsCompanion(
+        meta: Value(metaJson),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> updateMainTypeAndData(
+    String itemId,
+    String mainType,
+    String mainData,
+  ) {
+    return (update(items)..where((t) => t.id.equals(itemId))).write(
+      ItemsCompanion(
+        mainType: Value(mainType),
+        mainData: Value(mainData),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  Future<void> reorderItems(
+    String folderId,
+    List<String> orderedItemIds,
+  ) async {
+    await transaction(() async {
+      for (var i = 0; i < orderedItemIds.length; i++) {
+        final id = orderedItemIds[i];
+        await (update(items)
+              ..where((t) => t.id.equals(id) & t.folderId.equals(folderId)))
+            .write(
+          ItemsCompanion(
+            orderIndex: Value(i),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+    });
+  }
+}
+</file>
+
+<file path="data/dao/items_dao.g.dart">
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'items_dao.dart';
+
+// ignore_for_file: type=lint
+mixin _$ItemsDaoMixin on DatabaseAccessor<AppDatabase> {
+  $ItemsTable get items => attachedDatabase.items;
+}
+</file>
+
+<file path="data/providers.dart">
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'app_database.dart';
+
+final dbProvider = Provider<AppDatabase>((ref) {
+  final db = AppDatabase();
+  ref.onDispose(db.close);
+  return db;
+});
+</file>
+
+<file path="main.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'routing/app_router.dart';
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(const ProviderScope(child: NoteAppPP()));
+}
+
+class NoteAppPP extends ConsumerWidget {
+  const NoteAppPP({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final router = ref.watch(appRouterProvider);
+
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        title: 'Note App P P',
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
+        ),
+        routerConfig: router,
+        
+      ),
+    );
+  }
+}
+</file>
+
+<file path="routing/app_router.dart">
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../ui/screens/folder/folder_screen.dart';
+import '../ui/screens//item/item_details_screen.dart';
+import '../ui/screens/settings_screen.dart';
+
+final appRouterProvider = Provider<GoRouter>((ref) {
+  return GoRouter(
+    initialLocation: '/folder/root',
+    routes: [
+      GoRoute(
+        path: '/folder/:id',
+        builder: (context, state) => FolderScreen(folderId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/item/:id',
+        builder: (context, state) => ItemDetailsScreen(itemId: state.pathParameters['id']!),
+      ),
+      GoRoute(
+        path: '/settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+    ],
+  );
+});
+</file>
+
+<file path="storage/file_manager.dart">
+import 'dart:io';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
+
+class FileManager {
+  final _uuid = const Uuid();
+
+  Future<Directory> _rootDir() async {
+    final doc = await getApplicationDocumentsDirectory();
+    final dir = Directory(p.join(doc.path, 'note_app_pp_assets'));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  Future<String> importFileToPrivateStorage(File source, {String? extension}) async {
+    final root = await _rootDir();
+    final id = _uuid.v4();
+    final ext = extension ?? p.extension(source.path);
+    final dest = File(p.join(root.path, '$id$ext'));
+    await source.copy(dest.path);
+    return dest.path;
+  }
+
+  Future<String> createNewPrivateFile({required String extension}) async {
+    final root = await _rootDir();
+    final id = _uuid.v4();
+    return p.join(root.path, '$id$extension');
+  }
+
+  Future<void> deleteFileIfExists(String path) async {
+    final f = File(path);
+    if (await f.exists()) {
+      await f.delete();
+    }
+  }
+}
+</file>
+
+<file path="ui/common/colors.dart">
+const folderColorPresets = [
+  0xFF9E9E9E, // grey
+  0xFF2196F3, // blue
+  0xFF4CAF50, // green
+  0xFFFFC107, // amber
+  0xFFFF5722, // deep orange
+  0xFF9C27B0, // purple
+  0xFF607D8B, // blue grey
+];
+</file>
+
+<file path="ui/common/confirm_dialog.dart">
+import 'package:flutter/material.dart';
+
+Future<bool> showConfirmDialog(BuildContext context, {required String title, required String message}) async {
+  final res = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text(title),
+      content: Text(message),
+      actions: [
+        TextButton(onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+        FilledButton(onPressed: () => Navigator.of(context).pop(true), child: const Text('OK')),
+      ],
+    ),
+  );
+  return res ?? false;
+}
+</file>
+
+<file path="ui/common/folder_color_picker.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_colorpicker/flutter_colorpicker.dart';
+
+Future<int?> showFolderColorPicker(
+  BuildContext context, {
+  required int currentColor,
+  required List<int> presets,
+}) async {
+  Color selected = Color(currentColor);
+
+  return showModalBottomSheet<int>(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (_) => Padding(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Folder color',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 16),
+
+          /// 🎡 COLOR WHEEL
+          ColorPicker(
+            pickerColor: selected,
+            onColorChanged: (c) => selected = c,
+            enableAlpha: false,
+            labelTypes: const [],
+          ),
+
+          const SizedBox(height: 12),
+
+          /// 🧱 PRESETS
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'Presets',
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: presets
+                .map(
+                  (c) => GestureDetector(
+                    onTap: () => selected = Color(c),
+                    child: CircleAvatar(
+                      backgroundColor: Color(c),
+                      radius: 16,
+                    ),
+                  ),
+                )
+                .toList(),
+          ),
+
+          const SizedBox(height: 20),
+
+          Row(
+            children: [
+              Expanded(
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+              ),
+              Expanded(
+                child: FilledButton(
+                  onPressed: () =>
+                      Navigator.pop(context, selected.value),
+                  child: const Text('Save'),
+                ),
+              ),
+            ],
+          )
+        ],
+      ),
+    ),
+  );
+}
+</file>
+
+<file path="ui/common/snackbar.dart">
+import 'package:flutter/material.dart';
+
+void showSnack(BuildContext context, String message) {
+  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+}
+</file>
+
+<file path="ui/common/video_meta.dart">
+import 'dart:convert';
+
+import 'package:drift/drift.dart';
+import 'package:note_app_pp/data/app_database.dart';
+
+enum VideoPlayMode { offline, online }
+
+Map<String, dynamic> readJsonMeta(String? meta) {
+  if (meta == null || meta.trim().isEmpty) return {};
+  try {
+    final d = jsonDecode(meta);
+    return d is Map ? d.cast<String, dynamic>() : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+String writeJsonMeta(Map<String, dynamic> meta) => jsonEncode(meta);
+
+String? metaYoutubeUrl(String? meta) {
+  final m = readJsonMeta(meta);
+  final v = (m['youtubeUrl'] ?? '').toString().trim();
+  return v.isEmpty ? null : v;
+}
+
+VideoPlayMode metaPlayMode(String? meta, {VideoPlayMode fallback = VideoPlayMode.offline}) {
+  final m = readJsonMeta(meta);
+  final v = (m['playMode'] ?? '').toString().trim().toLowerCase();
+  if (v == 'online') return VideoPlayMode.online;
+  if (v == 'offline') return VideoPlayMode.offline;
+  return fallback;
+}
+
+Future<void> setItemYoutubeUrl(AppDatabase db, Item item, String? youtubeUrl) async {
+  final m = readJsonMeta(item.meta);
+  final v = (youtubeUrl ?? '').trim();
+  if (v.isEmpty) {
+    m.remove('youtubeUrl');
+  } else {
+    m['youtubeUrl'] = v;
+  }
+  await db.itemsDao.updateMeta(item.id, m.isEmpty ? null : writeJsonMeta(m));
+}
+
+Future<void> setItemPlayMode(AppDatabase db, Item item, VideoPlayMode mode) async {
+  final m = readJsonMeta(item.meta);
+  m['playMode'] = mode == VideoPlayMode.online ? 'online' : 'offline';
+  await db.itemsDao.updateMeta(item.id, writeJsonMeta(m));
+}
+
+Future<void> setBlockYoutubeUrl(AppDatabase db, DetailBlock block, String? youtubeUrl) async {
+  final m = readJsonMeta(block.meta);
+  final v = (youtubeUrl ?? '').trim();
+  if (v.isEmpty) {
+    m.remove('youtubeUrl');
+  } else {
+    m['youtubeUrl'] = v;
+  }
+  await (db.update(db.detailBlocks)..where((t) => t.id.equals(block.id))).write(
+    DetailBlocksCompanion(
+      meta: Value(m.isEmpty ? null : writeJsonMeta(m)),
+      updatedAt: Value(DateTime.now()),
+    ),
+  );
+}
+
+Future<void> setBlockPlayMode(AppDatabase db, DetailBlock block, VideoPlayMode mode) async {
+  final m = readJsonMeta(block.meta);
+  m['playMode'] = mode == VideoPlayMode.online ? 'online' : 'offline';
+  await (db.update(db.detailBlocks)..where((t) => t.id.equals(block.id))).write(
+    DetailBlocksCompanion(
+      meta: Value(writeJsonMeta(m)),
+      updatedAt: Value(DateTime.now()),
+    ),
+  );
+}
+
+String? tryExtractYoutubeId(String url) {
+  final u = url.trim();
+  if (u.isEmpty) return null;
+
+  Uri? uri;
+  try {
+    uri = Uri.parse(u);
+  } catch (_) {
+    return null;
+  }
+
+  final host = (uri.host).toLowerCase();
+
+  // youtu.be/<id>
+  if (host.contains('youtu.be')) {
+    final seg = uri.pathSegments;
+    if (seg.isNotEmpty) return seg.first;
+  }
+
+  // youtube.com/watch?v=<id>
+  if (host.contains('youtube.com')) {
+    final v = uri.queryParameters['v'];
+    if (v != null && v.isNotEmpty) return v;
+
+    // youtube.com/embed/<id>, /shorts/<id>
+    final seg = uri.pathSegments;
+    final embedIdx = seg.indexOf('embed');
+    if (embedIdx != -1 && embedIdx + 1 < seg.length) return seg[embedIdx + 1];
+    final shortsIdx = seg.indexOf('shorts');
+    if (shortsIdx != -1 && shortsIdx + 1 < seg.length) return seg[shortsIdx + 1];
+  }
+
+  return null;
+}
+
+bool looksLikeHttpUrl(String s) => s.trim().startsWith('http://') || s.trim().startsWith('https://');
+</file>
+
+<file path="ui/screens/folder/body/folder_body.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../list/folder_list_normal.dart';
+import '../list/folder_list_reorder.dart';
+
+class FolderBody extends ConsumerWidget {
+  const FolderBody({
+    super.key,
+    required this.folderId,
+    required this.sortMode,
+    required this.query,
+    required this.reorderMode,
+    required this.searching,
+    required this.searchCtrl,
+    required this.onSearchChanged,
+  });
+
+  final String folderId;
+  final String sortMode;
+  final String query;
+  final bool reorderMode;
+  final bool searching;
+  final TextEditingController searchCtrl;
+
+  final VoidCallback onSearchChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return Column(
+      children: [
+        if (searching)
+          Padding(
+            padding: const EdgeInsets.all(12),
+            child: TextField(
+              controller: searchCtrl,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                labelText: 'Search in this folder',
+              ),
+              // ✅ LIVE SEARCH
+              onChanged: (_) => onSearchChanged(),
+            ),
+          ),
+        Expanded(
+          child: (sortMode == 'free' && reorderMode)
+              ? FolderListReorder(folderId: folderId, query: query)
+              : FolderListNormal(
+                  folderId: folderId,
+                  sortMode: sortMode,
+                  query: query,
+                ),
+        ),
+      ],
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/folder/dialogs/folder_rename_dialog.dart">
+import 'package:flutter/material.dart';
+
+import '../../../../data/app_database.dart';
+
+Future<void> showRenameFolderDialog(
+  BuildContext context,
+  AppDatabase db,
+  Folder folder,
+) async {
+  final controller = TextEditingController(text: folder.name);
+
+  final res = await showDialog<String?>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Rename folder'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        textInputAction: TextInputAction.done,
+        onSubmitted: (_) => Navigator.pop(context, controller.text.trim()),
+        decoration: const InputDecoration(border: OutlineInputBorder()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, controller.text.trim()),
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+
+  final name = (res ?? '').trim();
+  if (name.isEmpty || name == folder.name) return;
+
+  await db.foldersDao.renameFolder(folder.id, name);
+}
+</file>
+
+<file path="ui/screens/folder/folder_actions.dart">
+import 'dart:io';
+
+import 'package:drift/drift.dart';
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:note_app_pp/ui/widgets/audio_player_widget.dart';
+import 'package:uuid/uuid.dart';
+
+import 'package:note_app_pp/data/app_database.dart';
+import 'package:note_app_pp/storage/file_manager.dart';
+import 'package:note_app_pp/ui/common/video_meta.dart';
+
+final _uuid = const Uuid();
+
+Future<void> createFolder(
+  BuildContext context,
+  AppDatabase db,
+  String parentId,
+) async {
+  final name = await promptTextDialog(
+    context,
+    title: 'Folder name',
+    hint: 'e.g., Work',
+    multiline: false,
+  );
+  if (name == null || name.trim().isEmpty) return;
+
+  final id = _uuid.v4();
+  final now = DateTime.now();
+
+  await db.foldersDao.upsertFolder(
+    FoldersCompanion.insert(
+      id: id,
+      parentId: Value(parentId),
+      name: name.trim(),
+      createdAt: now,
+      updatedAt: now,
+      sortMode: const Value('name'),
+      orderIndex: const Value(0),
+    ),
+  );
+}
+
+Future<void> createNote(
+  BuildContext context,
+  AppDatabase db,
+  String folderId,
+) async {
+  final title = await promptTextDialog(
+    context,
+    title: 'Note title (optional)',
+    hint: 'Title',
+    multiline: false,
+  );
+
+  final text = await promptTextDialog(
+    context,
+    title: 'Note text',
+    hint: 'Write here...',
+    multiline: true,
+  );
+  if (text == null) return;
+
+  final id = _uuid.v4();
+  final now = DateTime.now();
+
+  await db.itemsDao.insertItem(
+    ItemsCompanion.insert(
+      id: id,
+      folderId: folderId,
+      type: 'note',
+      title: Value(title?.trim().isEmpty ?? true ? null : title!.trim()),
+      createdAt: now,
+      updatedAt: now,
+      mainType: 'note',
+      mainData: text,
+      meta: const Value(null),
+    ),
+  );
+
+  if (context.mounted) context.push('/item/$id');
+}
+
+Future<void> createVoiceNote(
+  BuildContext context,
+  AppDatabase db,
+  String folderId,
+) async {
+  final title = await promptTextDialog(
+    context,
+    title: 'Voice title (optional)',
+    hint: 'Title',
+    multiline: false,
+  );
+
+  final fm = FileManager();
+  final path = await fm.createNewPrivateFile(extension: '.m4a');
+
+  final recorded = await AudioPlayerWidget.recordToFile(
+    context,
+    outputPath: path,
+  );
+
+  if (!recorded) return;
+
+  final assetId = _uuid.v4();
+  final now = DateTime.now();
+
+  await db.assetsDao.upsertAsset(
+    FileAssetsCompanion.insert(
+      id: assetId,
+      path: path,
+      mimeType: const Value('audio/m4a'),
+      createdAt: now,
+      sizeBytes: Value(await File(path).length()),
+    ),
+  );
+
+  final itemId = _uuid.v4();
+  await db.itemsDao.insertItem(
+    ItemsCompanion.insert(
+      id: itemId,
+      folderId: folderId,
+      type: 'voice',
+      title: Value(title?.trim().isEmpty ?? true ? null : title!.trim()),
+      createdAt: now,
+      updatedAt: now,
+      mainType: 'voice',
+      mainData: assetId,
+      meta: const Value(null),
+    ),
+  );
+
+  if (context.mounted) context.push('/item/$itemId');
+}
+
+Future<void> importImage(
+  BuildContext context,
+  AppDatabase db,
+  String folderId,
+) async {
+  final x = await ImagePicker().pickImage(source: ImageSource.gallery);
+  if (x == null) return;
+
+  final fm = FileManager();
+  final destPath = await fm.importFileToPrivateStorage(File(x.path));
+  final assetId = _uuid.v4();
+  final now = DateTime.now();
+
+  await db.assetsDao.upsertAsset(
+    FileAssetsCompanion.insert(
+      id: assetId,
+      path: destPath,
+      mimeType: const Value('image/*'),
+      createdAt: now,
+      sizeBytes: Value(await File(destPath).length()),
+    ),
+  );
+
+  final itemId = _uuid.v4();
+  await db.itemsDao.insertItem(
+    ItemsCompanion.insert(
+      id: itemId,
+      folderId: folderId,
+      type: 'photo',
+      title: const Value(null),
+      createdAt: now,
+      updatedAt: now,
+      mainType: 'photo',
+      mainData: assetId,
+      meta: const Value(null),
+    ),
+  );
+
+  if (context.mounted) context.push('/item/$itemId');
+}
+
+Future<void> importVideo(
+  BuildContext context,
+  AppDatabase db,
+  String folderId,
+) async {
+  final type = await showModalBottomSheet<String>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => SafeArea(
+      child: Wrap(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.video_file),
+            title: const Text('Add local video'),
+            onTap: () => Navigator.pop(ctx, 'local'),
+          ),
+          ListTile(
+            leading: const Icon(Icons.link),
+            title: const Text('Add YouTube link'),
+            onTap: () => Navigator.pop(ctx, 'youtube'),
+          ),
+        ],
+      ),
+    ),
+  );
+
+  if (type == null) return;
+
+  final now = DateTime.now();
+
+  if (type == 'youtube') {
+    final url = await promptTextDialog(
+      context,
+      title: 'YouTube link',
+      hint: 'https://youtube.com/watch?v=...',
+      multiline: false,
+    );
+    final v = (url ?? '').trim();
+    if (v.isEmpty) return;
+
+    // YouTube-only: store url in mainData, meta sets playMode online.
+    final itemId = _uuid.v4();
+    await db.itemsDao.insertItem(
+      ItemsCompanion.insert(
+        id: itemId,
+        folderId: folderId,
+        type: 'video',
+        title: const Value(null),
+        createdAt: now,
+        updatedAt: now,
+        mainType: 'video',
+        mainData: v,
+        meta: Value(writeJsonMeta({'youtubeUrl': v, 'playMode': 'online'})),
+      ),
+    );
+
+    if (context.mounted) context.push('/item/$itemId');
+    return;
+  }
+
+  final x = await ImagePicker().pickVideo(source: ImageSource.gallery);
+  if (x == null) return;
+
+  final fm = FileManager();
+  final destPath = await fm.importFileToPrivateStorage(File(x.path));
+  final assetId = _uuid.v4();
+
+  await db.assetsDao.upsertAsset(
+    FileAssetsCompanion.insert(
+      id: assetId,
+      path: destPath,
+      mimeType: const Value('video/*'),
+      createdAt: now,
+      sizeBytes: Value(await File(destPath).length()),
+    ),
+  );
+
+  final itemId = _uuid.v4();
+  await db.itemsDao.insertItem(
+    ItemsCompanion.insert(
+      id: itemId,
+      folderId: folderId,
+      type: 'video',
+      title: const Value(null),
+      createdAt: now,
+      updatedAt: now,
+      mainType: 'video',
+      mainData: assetId,
+      meta: const Value(null),
+    ),
+  );
+
+  if (context.mounted) context.push('/item/$itemId');
+}
+
+Future<void> importPdf(
+  BuildContext context,
+  AppDatabase db,
+  String folderId,
+) async {
+  final res = await FilePicker.platform.pickFiles(
+    type: FileType.custom,
+    allowedExtensions: ['pdf'],
+    withData: false,
+  );
+
+  final path = res?.files.single.path;
+  if (path == null) return;
+
+  final fm = FileManager();
+  final destPath = await fm.importFileToPrivateStorage(
+    File(path),
+    extension: '.pdf',
+  );
+
+  final assetId = _uuid.v4();
+  final now = DateTime.now();
+
+  await db.assetsDao.upsertAsset(
+    FileAssetsCompanion.insert(
+      id: assetId,
+      path: destPath,
+      mimeType: const Value('application/pdf'),
+      createdAt: now,
+      sizeBytes: Value(await File(destPath).length()),
+    ),
+  );
+
+  final itemId = _uuid.v4();
+  await db.itemsDao.insertItem(
+    ItemsCompanion.insert(
+      id: itemId,
+      folderId: folderId,
+      type: 'pdf',
+      title: const Value(null),
+      createdAt: now,
+      updatedAt: now,
+      mainType: 'pdf',
+      mainData: assetId,
+      meta: const Value(null),
+    ),
+  );
+
+  if (context.mounted) context.push('/item/$itemId');
+}
+
+Future<String?> promptTextDialog(
+  BuildContext context, {
+  required String title,
+  required String hint,
+  required bool multiline,
+}) async {
+  final c = TextEditingController();
+
+  return showDialog<String?>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: Text(title),
+      content: TextField(
+        controller: c,
+        autofocus: true,
+        minLines: multiline ? 4 : 1,
+        maxLines: multiline ? 8 : 1,
+        textInputAction: multiline ? TextInputAction.newline : TextInputAction.done,
+        onSubmitted: multiline ? null : (_) => Navigator.pop(context, c.text),
+        decoration: InputDecoration(hintText: hint),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(context, c.text),
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+}
+</file>
+
+<file path="ui/screens/folder/folder_add_sheet.dart">
+import 'package:flutter/material.dart';
+
+import '../../../data/app_database.dart';
+import 'folder_actions.dart';
+
+Future<void> showFolderAddSheet({
+  required BuildContext context,
+  required AppDatabase db,
+  required String folderId,
+}) async {
+  await showModalBottomSheet(
+    context: context,
+    showDragHandle: true,
+    builder: (_) => SafeArea(
+      child: Wrap(
+        children: [
+          ListTile(
+            leading: const Icon(Icons.create_new_folder),
+            title: const Text('New folder'),
+            onTap: () async {
+              Navigator.pop(context);
+              await createFolder(context, db, folderId);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.note),
+            title: const Text('New note'),
+            onTap: () async {
+              Navigator.pop(context);
+              await createNote(context, db, folderId);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.photo),
+            title: const Text('Import photo'),
+            onTap: () async {
+              Navigator.pop(context);
+              await importImage(context, db, folderId);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.videocam),
+            title: const Text('Import video'),
+            onTap: () async {
+              Navigator.pop(context);
+              await importVideo(context, db, folderId);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.picture_as_pdf),
+            title: const Text('Import PDF'),
+            onTap: () async {
+              Navigator.pop(context);
+              await importPdf(context, db, folderId);
+            },
+          ),
+          ListTile(
+            leading: const Icon(Icons.mic),
+            title: const Text('Record voice'),
+            onTap: () async {
+              Navigator.pop(context);
+              await createVoiceNote(context, db, folderId);
+            },
+          ),
+        ],
+      ),
+    ),
+  );
+}
+</file>
+
+<file path="ui/screens/folder/folder_app_bar.dart">
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+
+class FolderAppBar extends StatelessWidget implements PreferredSizeWidget {
+  const FolderAppBar({
+    super.key,
+    required this.title,
+    required this.folderId,
+    required this.sortMode,
+    required this.searching,
+    required this.reorderMode,
+    required this.onToggleSearch,
+    required this.onToggleReorder,
+    required this.onSelectSort,
+  });
+
+  final String title;
+  final String folderId;
+  final String sortMode;
+  final bool searching;
+  final bool reorderMode;
+
+  final VoidCallback onToggleSearch;
+  final VoidCallback onToggleReorder;
+  final Future<void> Function(String) onSelectSort;
+
+  @override
+  Widget build(BuildContext context) {
+    final showReorderBtn = sortMode == 'free';
+
+    return AppBar(
+      title: Text(title),
+      actions: [
+        if (showReorderBtn)
+          IconButton(
+            tooltip: reorderMode ? 'Done' : 'Reorder',
+            icon: Icon(reorderMode ? Icons.check : Icons.swap_vert),
+            onPressed: onToggleReorder,
+          ),
+        IconButton(
+          tooltip: 'Search',
+          icon: Icon(searching ? Icons.close : Icons.search),
+          onPressed: onToggleSearch,
+        ),
+        PopupMenuButton<String>(
+          tooltip: 'Sort',
+          onSelected: onSelectSort,
+          itemBuilder: (_) => [
+            CheckedPopupMenuItem(
+              value: 'name',
+              checked: sortMode == 'name',
+              child: const Text('Name (A-Z)'),
+            ),
+            CheckedPopupMenuItem(
+              value: 'date',
+              checked: sortMode == 'date',
+              child: const Text('Created (newest)'),
+            ),
+            CheckedPopupMenuItem(
+              value: 'free',
+              checked: sortMode == 'free',
+              child: const Text('Free sort'),
+            ),
+          ],
+        ),
+
+        IconButton(
+          tooltip: 'Settings',
+          icon: const Icon(Icons.settings),
+          onPressed: () => context.push('/settings'),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+</file>
+
+<file path="ui/screens/folder/folder_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../data/app_database.dart';
+import '../../../data/providers.dart';
+import 'folder_app_bar.dart';
+import 'folder_add_sheet.dart';
+import 'body/folder_body.dart';
+
+class FolderScreen extends ConsumerStatefulWidget {
+  const FolderScreen({super.key, required this.folderId});
+  final String folderId;
+
+  @override
+  ConsumerState<FolderScreen> createState() => _FolderScreenState();
+}
+
+class _FolderScreenState extends ConsumerState<FolderScreen> {
+  final _searchCtrl = TextEditingController();
+  bool _searching = false;
+  bool _reorderMode = false;
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final db = ref.watch(dbProvider);
+    final folderId = widget.folderId;
+
+    return StreamBuilder<Folder?>(
+      stream: db.foldersDao.watchById(folderId),
+      builder: (context, snap) {
+        final f = snap.data;
+
+        if (snap.connectionState != ConnectionState.active && f == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final title = f?.name ?? (folderId == 'root' ? 'Root' : 'Folder');
+        final sortMode = f?.sortMode ?? 'name';
+
+        // If user switches away from free sort, exit reorder mode automatically
+        if (sortMode != 'free' && _reorderMode) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _reorderMode = false);
+          });
+        }
+
+        return Scaffold(
+          appBar: FolderAppBar(
+            title: title,
+            folderId: folderId,
+            sortMode: sortMode,
+            searching: _searching,
+            reorderMode: _reorderMode,
+            onToggleSearch: () {
+              setState(() {
+                _searching = !_searching;
+                if (!_searching) _searchCtrl.clear();
+              });
+            },
+            onToggleReorder: () => setState(() => _reorderMode = !_reorderMode),
+            onSelectSort: (v) async {
+              await db.foldersDao.setSortMode(folderId, v);
+              if (v != 'free' && mounted) setState(() => _reorderMode = false);
+            },
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => showFolderAddSheet(
+              context: context,
+              db: db,
+              folderId: folderId,
+            ),
+            child: const Icon(Icons.add),
+          ),
+          body: FolderBody(
+            folderId: folderId,
+            sortMode: sortMode,
+            query: _searchCtrl.text.trim(),
+            reorderMode: _reorderMode,
+            searching: _searching,
+            searchCtrl: _searchCtrl,
+            onSearchChanged: () {
+              setState(() {});
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/folder/list/folder_list_normal.dart">
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../data/app_database.dart';
+import '../../../../data/providers.dart';
+import '../../../common/folder_color_picker.dart';
+import '../../../common/colors.dart';
+import '../../../widgets/audio_player_widget.dart';
+import '../dialogs/folder_rename_dialog.dart';
+
+class FolderListNormal extends ConsumerWidget {
+  const FolderListNormal({
+    super.key,
+    required this.folderId,
+    required this.sortMode,
+    required this.query,
+  });
+
+  final String folderId;
+  final String sortMode;
+  final String query;
+
+  bool _match(String q, String s) {
+    if (q.isEmpty) return true;
+    return s.toLowerCase().contains(q.toLowerCase());
+  }
+
+  String _fmt(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.hour)}:${two(d.minute)} ${d.day}/${d.month}/${d.year}';
+  }
+
+  IconData _itemIcon(String type) {
+    switch (type) {
+      case 'photo':
+        return Icons.photo;
+      case 'video':
+        return Icons.videocam;
+      case 'voice':
+        return Icons.mic;
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      default:
+        return Icons.note;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.watch(dbProvider);
+
+    final foldersStream = db.foldersDao.watchChildren(folderId, sortMode);
+    final itemsStream = db.itemsDao.watchItemsInFolder(folderId, sortMode);
+
+    return StreamBuilder<List<Folder>>(
+      stream: foldersStream,
+      builder: (context, fSnap) {
+        final foldersRaw = fSnap.data ?? [];
+        final folders = foldersRaw.where((f) => _match(query, f.name)).toList();
+
+        return StreamBuilder<List<Item>>(
+          stream: itemsStream,
+          builder: (context, iSnap) {
+            final itemsRaw = iSnap.data ?? [];
+            final items = itemsRaw
+                .where((i) => _match(query, i.title ?? i.type))
+                .toList();
+
+            return ListView(
+              children: [
+                if (folders.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                    child: Text(
+                      'Folders',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ...folders.map(
+                  (f) => ListTile(
+                    leading: Icon(Icons.folder, color: Color(f.color)),
+                    title: Text(f.name),
+                    subtitle: Text(_fmt(f.createdAt)),
+                    trailing: f.id == 'root'
+                        ? null
+                        : Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.color_lens),
+                                tooltip: 'Change color',
+                                onPressed: () async {
+                                  final newColor = await showFolderColorPicker(
+                                    context,
+                                    currentColor: f.color,
+                                    presets: folderColorPresets,
+                                  );
+                                  if (newColor != null) {
+                                    await ref
+                                        .read(dbProvider)
+                                        .foldersDao
+                                        .updateColor(f.id, newColor);
+                                  }
+                                },
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.edit),
+                                tooltip: 'Rename',
+                                onPressed: () =>
+                                    showRenameFolderDialog(context, db, f),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete),
+                                tooltip: 'Delete',
+                                onPressed: () async {
+                                  final ok = await showDialog<bool>(
+                                    context: context,
+                                    builder: (_) => AlertDialog(
+                                      title: const Text('Delete folder?'),
+                                      content: const Text(
+                                        'This will delete the folder and everything inside it.',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, false),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        FilledButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context, true),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (ok != true) return;
+                                  await ref
+                                      .read(dbProvider)
+                                      .foldersDao
+                                      .deleteFolderTree(f.id);
+                                },
+                              ),
+                            ],
+                          ),
+                    onTap: () => context.push('/folder/${f.id}'),
+                  ),
+                ),
+                if (items.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                    child: Text(
+                      'Items',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+
+                ...items.map((i) {
+                  if (i.type != 'voice') {
+                    return ListTile(
+                      leading: Icon(_itemIcon(i.type)),
+                      title: Text(i.title ?? i.type.toUpperCase()),
+                      subtitle: Text(_fmt(i.createdAt)),
+                      onTap: () => context.push('/item/${i.id}'),
+                    );
+                  }
+
+                  return Card(
+                    margin: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          leading: Icon(_itemIcon(i.type)),
+                          title: Text(i.title ?? i.type.toUpperCase()),
+                          subtitle: Text(_fmt(i.createdAt)),
+                          onTap: () => context.push('/item/${i.id}'),
+                        ),
+                        FutureBuilder<FileAsset?>(
+                          future: db.assetsDao.getById(i.mainData),
+                          builder: (context, snap) {
+                            final p = snap.data?.path;
+                            if (p == null || !File(p).existsSync()) {
+                              return const Padding(
+                                padding: EdgeInsets.fromLTRB(12, 0, 12, 10),
+                                child: Text('Audio file unavailable'),
+                              );
+                            }
+                            return Padding(
+                              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                              child: AudioPlayerWidget(
+                                file: File(p),
+                                compact: true,
+                                showTimes: false,
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+
+                if (folders.isEmpty && items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: Text('Empty')),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/folder/list/folder_list_reorder.dart">
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+
+import '../../../../data/app_database.dart';
+import '../../../../data/providers.dart';
+import '../../../common/folder_color_picker.dart';
+import '../../../common/colors.dart';
+import '../../../widgets/audio_player_widget.dart';
+import '../dialogs/folder_rename_dialog.dart';
+
+class FolderListReorder extends ConsumerStatefulWidget {
+  const FolderListReorder({
+    super.key,
+    required this.folderId,
+    required this.query,
+  });
+
+  final String folderId;
+  final String query;
+
+  @override
+  ConsumerState<FolderListReorder> createState() => _FolderListReorderState();
+}
+
+class _FolderListReorderState extends ConsumerState<FolderListReorder> {
+  bool _match(String q, String s) {
+    if (q.isEmpty) return true;
+    return s.toLowerCase().contains(q.toLowerCase());
+  }
+
+  String _fmt(DateTime d) {
+    String two(int n) => n.toString().padLeft(2, '0');
+    return '${two(d.hour)}:${two(d.minute)} ${d.day}/${d.month}/${d.year}';
+  }
+
+  IconData _itemIcon(String type) {
+    switch (type) {
+      case 'photo':
+        return Icons.photo;
+      case 'video':
+        return Icons.videocam;
+      case 'voice':
+        return Icons.mic;
+      case 'pdf':
+        return Icons.picture_as_pdf;
+      default:
+        return Icons.note;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final db = ref.watch(dbProvider);
+
+    final foldersStream = db.foldersDao.watchChildren(widget.folderId, 'free');
+    final itemsStream = db.itemsDao.watchItemsInFolder(widget.folderId, 'free');
+
+    return StreamBuilder<List<Folder>>(
+      stream: foldersStream,
+      builder: (context, fSnap) {
+        final foldersRaw = fSnap.data ?? [];
+        final folders =
+            foldersRaw.where((f) => _match(widget.query, f.name)).toList()
+              ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+
+        return StreamBuilder<List<Item>>(
+          stream: itemsStream,
+          builder: (context, iSnap) {
+            final itemsRaw = iSnap.data ?? [];
+            final items =
+                itemsRaw
+                    .where((i) => _match(widget.query, i.title ?? i.type))
+                    .toList()
+                  ..sort((a, b) => a.orderIndex.compareTo(b.orderIndex));
+
+            return ListView(
+              children: [
+                if (folders.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                    child: Text(
+                      'Folders',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: folders.length,
+                  onReorder: (oldIndex, newIndex) async {
+                    if (newIndex > oldIndex) newIndex -= 1;
+
+                    final updated = [...folders];
+                    final f = updated.removeAt(oldIndex);
+                    updated.insert(newIndex, f);
+
+                    await db.foldersDao.reorderFolders(
+                      updated.map((e) => e.id).toList(),
+                    );
+                  },
+                  itemBuilder: (context, idx) {
+                    final f = folders[idx];
+                    return ListTile(
+                      key: ValueKey('f-${f.id}'),
+                      leading: Icon(Icons.folder, color: Color(f.color)),
+                      title: Text(f.name),
+                      subtitle: Text(_fmt(f.createdAt)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.color_lens),
+                            tooltip: 'Change color',
+                            onPressed: () async {
+                              final newColor = await showFolderColorPicker(
+                                context,
+                                currentColor: f.color,
+                                presets: folderColorPresets,
+                              );
+                              if (newColor != null) {
+                                await ref
+                                    .read(dbProvider)
+                                    .foldersDao
+                                    .updateColor(f.id, newColor);
+                              }
+                            },
+                          ),
+                          if (f.id != 'root')
+                            IconButton(
+                              icon: const Icon(Icons.edit),
+                              tooltip: 'Rename',
+                              onPressed: () => showRenameFolderDialog(
+                                context,
+                                ref.read(dbProvider),
+                                f,
+                              ),
+                            ),
+                          if (f.id != 'root')
+                            IconButton(
+                              icon: const Icon(Icons.delete),
+                              tooltip: 'Delete',
+                              onPressed: () async {
+                                final ok = await showDialog<bool>(
+                                  context: context,
+                                  builder: (_) => AlertDialog(
+                                    title: const Text('Delete folder?'),
+                                    content: const Text(
+                                      'This will delete the folder and everything inside it.',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, false),
+                                        child: const Text('Cancel'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () =>
+                                            Navigator.pop(context, true),
+                                        child: const Text('Delete'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                                if (ok != true) return;
+                                await ref
+                                    .read(dbProvider)
+                                    .foldersDao
+                                    .deleteFolderTree(f.id);
+                              },
+                            ),
+                          const Icon(Icons.drag_handle),
+                        ],
+                      ),
+                      onTap: () => context.push('/folder/${f.id}'),
+                    );
+                  },
+                ),
+                if (items.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 6),
+                    child: Text(
+                      'Items',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                  ),
+
+                ReorderableListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: items.length,
+                  onReorder: (oldIndex, newIndex) async {
+                    if (newIndex > oldIndex) newIndex -= 1;
+
+                    final updated = [...items];
+                    final it = updated.removeAt(oldIndex);
+                    updated.insert(newIndex, it);
+
+                    await db.itemsDao.reorderItems(
+                      widget.folderId,
+                      updated.map((e) => e.id).toList(),
+                    );
+                  },
+                  itemBuilder: (context, idx) {
+                    final it = items[idx];
+
+                    if (it.type != 'voice') {
+                      return ListTile(
+                        key: ValueKey('i-${it.id}'),
+                        leading: Icon(_itemIcon(it.type)),
+                        title: Text(it.title ?? it.type.toUpperCase()),
+                        subtitle: Text(_fmt(it.createdAt)),
+                        trailing: const Icon(Icons.drag_handle),
+                        onTap: () => context.push('/item/${it.id}'),
+                      );
+                    }
+
+                    return Card(
+                      key: ValueKey('i-${it.id}'),
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ListTile(
+                            leading: Icon(_itemIcon(it.type)),
+                            title: Text(it.title ?? it.type.toUpperCase()),
+                            subtitle: Text(_fmt(it.createdAt)),
+                            trailing: const Icon(Icons.drag_handle),
+                            onTap: () => context.push('/item/${it.id}'),
+                          ),
+                          FutureBuilder<FileAsset?>(
+                            future: db.assetsDao.getById(it.mainData),
+                            builder: (context, snap) {
+                              final p = snap.data?.path;
+                              if (p == null || !File(p).existsSync()) {
+                                return const Padding(
+                                  padding: EdgeInsets.fromLTRB(12, 0, 12, 10),
+                                  child: Text('Audio file unavailable'),
+                                );
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.fromLTRB(
+                                  12,
+                                  0,
+                                  12,
+                                  8,
+                                ),
+                                child: AudioPlayerWidget(
+                                  file: File(p),
+                                  compact: true,
+                                  showTimes: false,
+                                ),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+
+                if (folders.isEmpty && items.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(32),
+                    child: Center(child: Text('Empty')),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/home_screen.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'folder/folder_screen.dart';
+
+class HomeScreen extends ConsumerWidget {
+  const HomeScreen({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return const FolderScreen(folderId: "/");
+  }
+}
+</file>
+
+<file path="ui/screens/item/item_actions.dart">
+// lib/ui/screens/item/item_actions.dart
+import 'dart:io';
+
+import 'package:drift/drift.dart' hide Column;
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:note_app_pp/ui/common/snackbar.dart';
+import 'package:uuid/uuid.dart';
+
+import 'package:note_app_pp/data/app_database.dart';
+import 'package:note_app_pp/storage/file_manager.dart';
+import 'package:note_app_pp/ui/common/confirm_dialog.dart';
+import 'package:note_app_pp/ui/widgets/audio_player_widget.dart';
+import 'item_rename_dialog.dart';
+import 'package:note_app_pp/ui/common/video_meta.dart';
+
+final _uuid = const Uuid();
+
+Future<String?> _recordVoiceAssetId(BuildContext context, AppDatabase db) async {
+  final fm = FileManager();
+  final path = await fm.createNewPrivateFile(extension: '.m4a');
+
+  final recorded = await AudioPlayerWidget.recordToFile(context, outputPath: path);
+
+  if (!recorded) {
+    await fm.deleteFileIfExists(path);
+    return null;
+  }
+
+  final assetId = _uuid.v4();
+  await db.assetsDao.upsertAsset(
+    FileAssetsCompanion.insert(
+      id: assetId,
+      path: path,
+      mimeType: const Value('audio/m4a'),
+      createdAt: DateTime.now(),
+      sizeBytes: Value(await File(path).length()),
+    ),
+  );
+
+  return assetId;
+}
+
+Future<String?> _promptYoutubeUrl(BuildContext context) async {
+  final url = await showRenameDialog(context, '');
+  final v = (url ?? '').trim();
+  if (v.isEmpty) return null;
+  if (tryExtractYoutubeId(v) == null) return null;
+  return v;
+}
+
+Future<void> addDetailBlock(BuildContext context, AppDatabase db, Item item) async {
+  final type = await showModalBottomSheet<String>(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(leading: const Icon(Icons.text_fields), title: const Text('Text'), onTap: () => Navigator.pop(ctx, 'text')),
+          ListTile(leading: const Icon(Icons.photo), title: const Text('Photo'), onTap: () => Navigator.pop(ctx, 'photo')),
+          ListTile(leading: const Icon(Icons.videocam), title: const Text('Video'), onTap: () => Navigator.pop(ctx, 'video')),
+          ListTile(leading: const Icon(Icons.picture_as_pdf), title: const Text('PDF'), onTap: () => Navigator.pop(ctx, 'pdf')),
+          ListTile(leading: const Icon(Icons.mic), title: const Text('Voice'), onTap: () => Navigator.pop(ctx, 'voice')),
+          ListTile(leading: const Icon(Icons.folder), title: const Text('Folder'), onTap: () => Navigator.pop(ctx, 'folder')),
+        ],
+      ),
+    ),
+  );
+  if (type == null) return;
+
+  final order = await db.blocksDao.watchBlocksForItem(item.id).first.then((l) => l.length);
+
+  if (type == 'text') {
+    await db.blocksDao.insertTextBlock(item.id, order);
+    return;
+  }
+
+  if (type == 'folder') {
+    final name = await showRenameDialog(context, 'New folder');
+    if (name == null) return;
+
+    final folderId = await db.foldersDao.createFolder(
+      name: name.trim().isEmpty ? 'New folder' : name.trim(),
+      parentItemId: item.id,
+    );
+
+    await db.blocksDao.insertFolderBlock(item.id, folderId, order);
+    return;
+  }
+
+  if (type == 'voice') {
+    final assetId = await _recordVoiceAssetId(context, db);
+    if (assetId == null) return;
+
+    await db.blocksDao.insertMediaBlock(item.id, 'voice', assetId, order);
+    return;
+  }
+
+  if (type == 'video') {
+    final mode = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(leading: const Icon(Icons.video_file), title: const Text('Add local video'), onTap: () => Navigator.pop(ctx, 'local')),
+            ListTile(leading: const Icon(Icons.link), title: const Text('Add YouTube link'), onTap: () => Navigator.pop(ctx, 'youtube')),
+          ],
+        ),
+      ),
+    );
+    if (mode == null) return;
+
+    if (mode == 'youtube') {
+      final url = await _promptYoutubeUrl(context);
+      if (url == null) {
+        showSnack(context, 'Invalid YouTube link');
+        return;
+      }
+      await db.blocksDao.insertYoutubeVideoBlock(item.id, url, order);
+      return;
+    }
+
+    final picked = (await ImagePicker().pickVideo(source: ImageSource.gallery))?.path;
+    if (picked == null) return;
+
+    final fm = FileManager();
+    final newPath = await fm.importFileToPrivateStorage(File(picked));
+    final assetId = _uuid.v4();
+
+    await db.assetsDao.upsertAsset(
+      FileAssetsCompanion.insert(
+        id: assetId,
+        path: newPath,
+        mimeType: const Value('video/*'),
+        createdAt: DateTime.now(),
+        sizeBytes: Value(await File(newPath).length()),
+      ),
+    );
+
+    await db.blocksDao.insertMediaBlock(item.id, 'video', assetId, order);
+    return;
+  }
+
+  String? picked;
+  if (type == 'photo') {
+    picked = (await ImagePicker().pickImage(source: ImageSource.gallery))?.path;
+  } else if (type == 'pdf') {
+    picked = (await FilePicker.platform.pickFiles(type: FileType.custom, allowedExtensions: ['pdf']))?.files.single.path;
+  }
+  if (picked == null) return;
+
+  final fm = FileManager();
+  final newPath = await fm.importFileToPrivateStorage(File(picked));
+  final assetId = _uuid.v4();
+
+  await db.assetsDao.upsertAsset(
+    FileAssetsCompanion.insert(
+      id: assetId,
+      path: newPath,
+      createdAt: DateTime.now(),
+      sizeBytes: Value(await File(newPath).length()),
+    ),
+  );
+
+  await db.blocksDao.insertMediaBlock(item.id, type, assetId, order);
+}
+
+/// ✅ Main block: change media source for photo/video/pdf/voice.
+Future<void> changeMainMedia(BuildContext context, AppDatabase db, Item item) async {
+  if (item.mainType == 'note') return;
+
+  // Helper: delete old asset if it's a local assetId.
+  Future<void> deleteOldAssetIfAny(String assetId) async {
+    if (assetId.trim().isEmpty) return;
+    final old = await db.assetsDao.getById(assetId);
+    if (old == null) return;
+    await FileManager().deleteFileIfExists(old.path);
+    await db.assetsDao.deleteAsset(old.id);
+  }
+
+  // PHOTO: replace with another gallery image
+  if (item.mainType == 'photo') {
+    final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
+    if (picked == null) return;
+
+    final fm = FileManager();
+    final newPath = await fm.importFileToPrivateStorage(File(picked.path));
+    final newAssetId = _uuid.v4();
+    final now = DateTime.now();
+
+    await db.assetsDao.upsertAsset(
+      FileAssetsCompanion.insert(
+        id: newAssetId,
+        path: newPath,
+        mimeType: const Value('image/*'),
+        createdAt: now,
+        sizeBytes: Value(await File(newPath).length()),
+      ),
+    );
+
+    final oldAssetId = item.mainData;
+    await db.itemsDao.updateMainTypeAndData(item.id, 'photo', newAssetId);
+    await deleteOldAssetIfAny(oldAssetId);
+    showSnack(context, 'Photo updated');
+    return;
+  }
+
+  // PDF: replace with another PDF
+  if (item.mainType == 'pdf') {
+    final picked = await FilePicker.platform.pickFiles(
+      type: FileType.custom,
+      allowedExtensions: ['pdf'],
+      withData: false,
+    );
+    final path = picked?.files.single.path;
+    if (path == null) return;
+
+    final fm = FileManager();
+    final newPath = await fm.importFileToPrivateStorage(File(path), extension: '.pdf');
+    final newAssetId = _uuid.v4();
+    final now = DateTime.now();
+
+    await db.assetsDao.upsertAsset(
+      FileAssetsCompanion.insert(
+        id: newAssetId,
+        path: newPath,
+        mimeType: const Value('application/pdf'),
+        createdAt: now,
+        sizeBytes: Value(await File(newPath).length()),
+      ),
+    );
+
+    final oldAssetId = item.mainData;
+    await db.itemsDao.updateMainTypeAndData(item.id, 'pdf', newAssetId);
+    await deleteOldAssetIfAny(oldAssetId);
+    showSnack(context, 'PDF updated');
+    return;
+  }
+
+  // VOICE: re-record
+  if (item.mainType == 'voice') {
+    final newAssetId = await _recordVoiceAssetId(context, db);
+    if (newAssetId == null) return;
+
+    final oldAssetId = item.mainData;
+    await db.itemsDao.updateMainTypeAndData(item.id, 'voice', newAssetId);
+    await deleteOldAssetIfAny(oldAssetId);
+    showSnack(context, 'Voice updated');
+    return;
+  }
+
+  // VIDEO: keep your existing logic (YouTube <-> local) with minor structure.
+  if (item.mainType == 'video') {
+    final isYoutube = looksLikeHttpUrl(item.mainData);
+
+    final choice = await showModalBottomSheet<String>(
+      context: context,
+      showDragHandle: true,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.video_file),
+              title: const Text('Change to another local video'),
+              onTap: () => Navigator.pop(ctx, 'local'),
+            ),
+            ListTile(
+              leading: const Icon(Icons.link),
+              title: Text(isYoutube ? 'Change to another YouTube link' : 'Change to a YouTube link'),
+              onTap: () => Navigator.pop(ctx, 'youtube'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (choice == null) return;
+
+    if (choice == 'youtube') {
+      final url = await _promptYoutubeUrl(context);
+      if (url == null) {
+        showSnack(context, 'Invalid YouTube link');
+        return;
+      }
+
+      // local -> youtube: delete old asset
+      if (!isYoutube && item.mainData.isNotEmpty) {
+        final ok = await showConfirmDialog(
+          context,
+          title: 'Switch to YouTube?',
+          message: 'This will replace the local video source with a YouTube link.',
+        );
+        if (!ok) return;
+
+        await deleteOldAssetIfAny(item.mainData);
+      }
+
+      await db.itemsDao.updateMainTypeAndData(item.id, 'video', url);
+      await setItemYoutubeUrl(db, item, url);
+      await setItemPlayMode(db, item, VideoPlayMode.online);
+      showSnack(context, 'YouTube link saved');
+      return;
+    }
+
+    if (choice == 'local') {
+      final pickedPath = (await ImagePicker().pickVideo(source: ImageSource.gallery))?.path;
+      if (pickedPath == null) return;
+
+      final fm = FileManager();
+      final newPath = await fm.importFileToPrivateStorage(File(pickedPath));
+      final newAssetId = _uuid.v4();
+
+      await db.assetsDao.upsertAsset(
+        FileAssetsCompanion.insert(
+          id: newAssetId,
+          path: newPath,
+          mimeType: const Value('video/*'),
+          createdAt: DateTime.now(),
+          sizeBytes: Value(await File(newPath).length()),
+        ),
+      );
+
+      // youtube -> local: clear yt meta
+      if (isYoutube) {
+        await db.itemsDao.updateMainTypeAndData(item.id, 'video', newAssetId);
+        await setItemYoutubeUrl(db, item, null);
+        await setItemPlayMode(db, item, VideoPlayMode.offline);
+        showSnack(context, 'Local video set');
+        return;
+      }
+
+      // local -> local: replace old asset
+      final oldAssetId = item.mainData;
+      await db.itemsDao.updateMainTypeAndData(item.id, 'video', newAssetId);
+      await deleteOldAssetIfAny(oldAssetId);
+      showSnack(context, 'Video updated');
+      return;
+    }
+  }
+}
+
+Future<void> deleteItem(
+  BuildContext context,
+  AppDatabase db,
+  Item item,
+) async {
+  final ok = await showConfirmDialog(
+    context,
+    title: 'Delete item?',
+    message: 'This will delete the item and all its content.',
+  );
+  if (!ok) return;
+
+  final fm = FileManager();
+
+  // Delete main asset if it is an offline media assetId.
+  if (item.mainType != 'note' && item.mainType != 'video' && item.mainData.isNotEmpty) {
+    final asset = await db.assetsDao.getById(item.mainData);
+    if (asset != null) {
+      await fm.deleteFileIfExists(asset.path);
+      await db.assetsDao.deleteAsset(asset.id);
+    }
+  }
+  if (item.mainType == 'video' && !looksLikeHttpUrl(item.mainData)) {
+    final asset = await db.assetsDao.getById(item.mainData);
+    if (asset != null) {
+      await fm.deleteFileIfExists(asset.path);
+      await db.assetsDao.deleteAsset(asset.id);
+    }
+  }
+
+  final blocks = await db.blocksDao.watchBlocksForItem(item.id).first;
+  for (final b in blocks) {
+    if (b.type == 'folder') {
+      await db.foldersDao.deleteFolderTree(b.data);
+      await db.blocksDao.deleteBlock(b.id);
+      continue;
+    }
+
+    if (b.type != 'text' && b.data.isNotEmpty) {
+      final asset = await db.assetsDao.getById(b.data);
+      if (asset != null) {
+        await fm.deleteFileIfExists(asset.path);
+        await db.assetsDao.deleteAsset(asset.id);
+      }
+    }
+    await db.blocksDao.deleteBlock(b.id);
+  }
+
+  await db.itemsDao.deleteItem(item.id);
+  if (context.mounted) Navigator.pop(context);
+}
+</file>
+
+<file path="ui/screens/item/item_block_meta.dart">
+import 'dart:convert';
+import 'package:drift/drift.dart';
+
+import 'package:note_app_pp/data/app_database.dart';
+
+Map<String, dynamic> readBlockMeta(String? meta) {
+  if (meta == null || meta.trim().isEmpty) return {};
+  try {
+    final d = jsonDecode(meta);
+    return d is Map ? d.cast<String, dynamic>() : {};
+  } catch (_) {
+    return {};
+  }
+}
+
+String defaultBlockTitle(DetailBlock b) => b.type.toUpperCase();
+
+String blockTitle(DetailBlock b) {
+  final meta = readBlockMeta(b.meta);
+  final t = (meta['title'] ?? '').toString().trim();
+  return t.isEmpty ? defaultBlockTitle(b) : t;
+}
+
+Future<void> setBlockTitle(
+  AppDatabase db,
+  DetailBlock block,
+  String title,
+) async {
+  final meta = readBlockMeta(block.meta);
+  meta['title'] = title.trim();
+
+  await (db.update(db.detailBlocks)..where((t) => t.id.equals(block.id))).write(
+    DetailBlocksCompanion(
+      meta: Value(jsonEncode(meta)),
+      updatedAt: Value(DateTime.now()),
+    ),
+  );
+}
+</file>
+
+<file path="ui/screens/item/item_details_screen.dart">
+// ui/screens/item/item_details_screen.dart
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:note_app_pp/data/app_database.dart';
+import 'package:note_app_pp/data/providers.dart';
+import 'item_actions.dart';
+import 'item_share.dart';
+import 'item_rename_dialog.dart';
+import 'widgets/main_media_card.dart';
+import 'widgets/detail_block_tile.dart';
+
+class ItemDetailsScreen extends ConsumerWidget {
+  const ItemDetailsScreen({super.key, required this.itemId});
+  final String itemId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.watch(dbProvider);
+
+    return StreamBuilder<Item?>(
+      stream: db.itemsDao.watchById(itemId),
+      builder: (context, snap) {
+        final item = snap.data;
+        if (item == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final title = (item.title ?? '').trim().isEmpty
+            ? item.type.toUpperCase()
+            : item.title!.trim();
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Text(title),
+            actions: [
+              // ✅ Rename moved to top
+              IconButton(
+                tooltip: 'Rename',
+                icon: const Icon(Icons.edit),
+                onPressed: () async {
+                  final t = await showRenameDialog(context, title);
+                  if (t == null) return;
+                  final v = t.trim();
+                  if (v.isEmpty || v == title) return;
+                  await db.itemsDao.updateTitle(item.id, v);
+                },
+              ),
+
+              // ✅ Change source moved to top (works for photo/video/pdf/voice)
+              if (item.mainType != 'note')
+                IconButton(
+                  tooltip: 'Change source',
+                  icon: const Icon(Icons.swap_horiz),
+                  onPressed: () => changeMainMedia(context, db, item),
+                ),
+
+              IconButton(
+                icon: const Icon(Icons.share),
+                onPressed: () => shareItem(context, db, item),
+              ),
+              IconButton(
+                icon: const Icon(Icons.delete),
+                onPressed: () => deleteItem(context, db, item),
+              ),
+            ],
+          ),
+          floatingActionButton: FloatingActionButton(
+            onPressed: () => addDetailBlock(context, db, item),
+            child: const Icon(Icons.add),
+          ),
+          body: StreamBuilder<List<DetailBlock>>(
+            stream: db.blocksDao.watchBlocksForItem(item.id),
+            builder: (context, bSnap) {
+              final blocks = [...(bSnap.data ?? [])];
+
+              return ListView(
+                padding: const EdgeInsets.all(12),
+                children: [
+                  const Text('Main'),
+                  const SizedBox(height: 8),
+
+                  MainMediaCard(item: item),
+
+                  const SizedBox(height: 24),
+                  const Text('Detail blocks'),
+                  const SizedBox(height: 8),
+                  if (blocks.isEmpty)
+                    const Text('No detail blocks')
+                  else
+                    ReorderableListView(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      onReorder: (oldIndex, newIndex) async {
+                        if (newIndex > oldIndex) newIndex--;
+                        final moved = blocks.removeAt(oldIndex);
+                        blocks.insert(newIndex, moved);
+                        await db.blocksDao.reorderBlocks(
+                          item.id,
+                          blocks.map((e) => e.id.toString()).toList(),
+                        );
+                      },
+                      children: [
+                        for (final b in blocks)
+                          DetailBlockTile(
+                            key: ValueKey(b.id),
+                            block: b,
+                          ),
+                      ],
+                    ),
+                  const SizedBox(height: 100),
+                ],
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/item/item_rename_dialog.dart">
+import 'package:flutter/material.dart';
+
+Future<String?> showRenameDialog(BuildContext context, String current) {
+  final controller = TextEditingController(text: current);
+
+  return showDialog<String?>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('Rename'),
+      content: TextField(
+        controller: controller,
+        autofocus: true,
+        decoration: const InputDecoration(border: OutlineInputBorder()),
+        onSubmitted: (_) =>
+            Navigator.pop(context, controller.text.trim()),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () =>
+              Navigator.pop(context, controller.text.trim()),
+          child: const Text('Save'),
+        ),
+      ],
+    ),
+  );
+}
+</file>
+
+<file path="ui/screens/item/item_share.dart">
+// lib/ui/screens/item/item_share.dart
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:share_plus/share_plus.dart';
+
+import 'package:note_app_pp/data/app_database.dart';
+import 'package:note_app_pp/ui/common/snackbar.dart';
+import 'package:note_app_pp/ui/common/video_meta.dart';
+
+Future<void> shareItem(BuildContext context, AppDatabase db, Item item) async {
+  if (item.mainType == 'note') {
+    final text = item.mainData.trim();
+    if (text.isEmpty) {
+      showSnack(context, 'Nothing to share');
+      return;
+    }
+    await Share.share(text);
+    return;
+  }
+
+  // ✅ Separate YouTube vs local (no mixing logic)
+  if (item.mainType == 'video' && looksLikeHttpUrl(item.mainData)) {
+    await Share.share(item.mainData.trim());
+    return;
+  }
+
+  final asset = await db.assetsDao.getById(item.mainData);
+  if (asset == null || !File(asset.path).existsSync()) {
+    showSnack(context, 'Media not found');
+    return;
+  }
+  await Share.shareXFiles([XFile(asset.path)]);
+}
+
+Future<void> shareBlock(BuildContext context, AppDatabase db, DetailBlock block) async {
+  if (block.type == 'text') {
+    final text = block.data.trim();
+    if (text.isEmpty) {
+      showSnack(context, 'Nothing to share');
+      return;
+    }
+    await Share.share(text);
+    return;
+  }
+
+  if (block.type == 'video' && block.data.trim().isEmpty) {
+    final yt = metaYoutubeUrl(block.meta);
+    if (yt == null || yt.trim().isEmpty) {
+      showSnack(context, 'Nothing to share');
+      return;
+    }
+    await Share.share(yt.trim());
+    return;
+  }
+
+  final asset = await db.assetsDao.getById(block.data);
+  if (asset == null || !File(asset.path).existsSync()) {
+    showSnack(context, 'Media not found');
+    return;
+  }
+  await Share.shareXFiles([XFile(asset.path)]);
+}
+</file>
+
+<file path="ui/screens/item/widgets/detail_block_tile.dart">
+// lib/ui/screens/item/widgets/detail_block_tile.dart
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:note_app_pp/data/app_database.dart';
+import 'package:note_app_pp/data/providers.dart';
+import 'package:note_app_pp/ui/common/confirm_dialog.dart';
+import 'package:note_app_pp/ui/common/snackbar.dart';
+import 'package:note_app_pp/ui/common/video_meta.dart';
+import 'package:note_app_pp/ui/screens/local_video_screen.dart';
+import 'package:note_app_pp/ui/screens/youtube_block_viewer_screen.dart';
+import 'package:note_app_pp/ui/screens/item/item_share.dart';
+import 'package:note_app_pp/ui/widgets/audio_player_widget.dart';
+import 'package:note_app_pp/storage/file_manager.dart';
+
+import '../item_block_meta.dart';
+import '../item_rename_dialog.dart';
+import 'full_screen_note_editor.dart';
+
+class DetailBlockTile extends ConsumerWidget {
+  const DetailBlockTile({super.key, required this.block});
+  final DetailBlock block;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.watch(dbProvider);
+
+    final isText = block.type == 'text';
+    final isVoice = block.type == 'voice';
+    final isVideo = block.type == 'video';
+
+    final yt = isVideo ? metaYoutubeUrl(block.meta) : null;
+    final isYoutubeBlock = isVideo && block.data.trim().isEmpty && yt != null && tryExtractYoutubeId(yt) != null;
+    final isLocalVideoBlock = isVideo && block.data.trim().isNotEmpty;
+
+    final title = blockTitle(block);
+
+    return Card(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ListTile(
+            leading: Icon(_detailIcon(block.type)),
+            title: Text(title),
+            subtitle: isText && block.data.trim().isNotEmpty
+                ? Text(block.data, maxLines: 2, overflow: TextOverflow.ellipsis)
+                : null,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(icon: const Icon(Icons.share), onPressed: () => shareBlock(context, db, block)),
+
+                // ✅ YouTube is NOT mixed into local video: link button only for YouTube video blocks.
+                if (isYoutubeBlock || (isVideo && block.data.trim().isEmpty))
+                  IconButton(
+                    tooltip: 'Set / Update YouTube link',
+                    icon: const Icon(Icons.link),
+                    onPressed: () async {
+                      final url = await showRenameDialog(context, yt ?? 'https://youtube.com/watch?v=...');
+                      final v = (url ?? '').trim();
+
+                      if (v.isEmpty) {
+                        await setBlockYoutubeUrl(db, block, null);
+                        showSnack(context, 'YouTube link removed');
+                        return;
+                      }
+                      if (tryExtractYoutubeId(v) == null) {
+                        showSnack(context, 'Invalid YouTube link');
+                        return;
+                      }
+
+                      await setBlockYoutubeUrl(db, block, v);
+                      showSnack(context, 'YouTube link saved');
+                    },
+                  ),
+
+                IconButton(
+                  icon: const Icon(Icons.edit),
+                  onPressed: () async {
+                    final t = await showRenameDialog(context, title);
+                    if (t != null) await setBlockTitle(db, block, t);
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete),
+                  onPressed: () async {
+                    final ok = await showConfirmDialog(
+                      context,
+                      title: 'Delete block?',
+                      message: 'Remove this block?',
+                    );
+                    if (!ok) return;
+
+                    if (block.type != 'text' && block.data.isNotEmpty) {
+                      final asset = await db.assetsDao.getById(block.data);
+                      if (asset != null) {
+                        await FileManager().deleteFileIfExists(asset.path);
+                        await db.assetsDao.deleteAsset(asset.id);
+                      }
+                    }
+                    await db.blocksDao.deleteBlock(block.id);
+                  },
+                ),
+              ],
+            ),
+            onTap: () async {
+              if (block.type == 'text') {
+                final updated = await Navigator.push<String>(
+                  context,
+                  MaterialPageRoute(builder: (_) => FullScreenNoteEditor(initialText: block.data)),
+                );
+                if (updated != null) await db.blocksDao.updateText(block.id, updated);
+                return;
+              }
+
+              if (isVoice) return;
+
+              // ✅ Separate local video flow: always full-screen.
+              if (isLocalVideoBlock) {
+                final asset = await db.assetsDao.getById(block.data);
+                final p = asset?.path;
+                if (p == null || !File(p).existsSync()) {
+                  showSnack(context, 'Video file not found');
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (_) => LocalVideoScreen(file: File(p), title: title),
+                  ),
+                );
+                return;
+              }
+
+              // ✅ Separate YouTube flow: open a dedicated viewer screen with actions.
+              if (isYoutubeBlock) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => YoutubeBlockViewerScreen(blockId: block.id)),
+                );
+                return;
+              }
+
+              // other media
+              if (block.type != 'text' && block.data.isNotEmpty) {
+                final asset = await db.assetsDao.getById(block.data);
+                if (asset == null || !File(asset.path).existsSync()) return;
+              }
+            },
+          ),
+          if (isVoice)
+            FutureBuilder<FileAsset?>(
+              future: db.assetsDao.getById(block.data),
+              builder: (context, snap) {
+                final p = snap.data?.path;
+                if (p == null || !File(p).existsSync()) {
+                  return const Padding(
+                    padding: EdgeInsets.fromLTRB(12, 0, 12, 10),
+                    child: Text('Audio file unavailable'),
+                  );
+                }
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: AudioPlayerWidget(file: File(p), compact: true, showTimes: false),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+IconData _detailIcon(String type) {
+  switch (type) {
+    case 'folder':
+      return Icons.folder;
+    case 'photo':
+      return Icons.photo;
+    case 'video':
+      return Icons.videocam;
+    case 'voice':
+      return Icons.mic;
+    case 'pdf':
+      return Icons.picture_as_pdf;
+    default:
+      return Icons.note;
+  }
+}
+</file>
+
+<file path="ui/screens/item/widgets/full_screen_note_editor.dart">
+import 'package:flutter/material.dart';
+
+class FullScreenNoteEditor extends StatelessWidget {
+  final String initialText;
+  final ValueChanged<String>? onSave;
+
+  const FullScreenNoteEditor({
+    super.key,
+    required this.initialText,
+    this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = TextEditingController(text: initialText);
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Edit note'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.check),
+            onPressed: () {
+              onSave?.call(controller.text);
+              Navigator.pop(context, controller.text);
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: TextField(
+          controller: controller,
+          maxLines: null,
+          autofocus: true,
+          textInputAction: TextInputAction.newline,
+        ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/item/widgets/main_media_card.dart">
+// ui/screens/item/widgets/main_media_card.dart
+import 'package:flutter/material.dart';
+
+import 'package:note_app_pp/data/app_database.dart';
+import 'note_preview_edit.dart';
+import 'media_preview.dart';
+
+class MainMediaCard extends StatelessWidget {
+  const MainMediaCard({super.key, required this.item});
+  final Item item;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: item.mainType == 'note'
+            ? NotePreviewAndEdit(item: item)
+            : MediaPreview(
+                item: item,
+                title: (item.title ?? '').trim().isEmpty
+                    ? item.type.toUpperCase()
+                    : item.title!.trim(),
+              ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/item/widgets/media_preview.dart">
+// lib/ui/screens/item/widgets/media_preview.dart
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:note_app_pp/data/app_database.dart';
+import 'package:note_app_pp/data/providers.dart';
+import 'package:note_app_pp/ui/common/video_meta.dart';
+import 'package:note_app_pp/ui/screens/local_video_screen.dart';
+import 'package:note_app_pp/ui/widgets/audio_player_widget.dart';
+import 'package:note_app_pp/ui/widgets/youtube_focused_player.dart';
+import 'preview_widget.dart';
+
+class MediaPreview extends ConsumerWidget {
+  const MediaPreview({super.key, required this.item, required this.title});
+
+  final Item item;
+  final String title;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.watch(dbProvider);
+
+    if (item.mainType == 'video' && looksLikeHttpUrl(item.mainData)) {
+      return YoutubeFocusedPlayer(youtubeUrl: item.mainData.trim());
+    }
+
+    return FutureBuilder<FileAsset?>(
+      future: db.assetsDao.getById(item.mainData),
+      builder: (context, snap) {
+        final path = snap.data?.path;
+        if (path == null || !File(path).existsSync()) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: Text('No media'),
+          );
+        }
+
+        if (item.mainType == 'voice') {
+          return Padding(
+            padding: const EdgeInsets.all(12),
+            child: AudioPlayerWidget(file: File(path)),
+          );
+        }
+
+        // ✅ Separate LOCAL video flow: always opens full-screen player.
+        if (item.mainType == 'video') {
+          return InkWell(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    LocalVideoScreen(file: File(path), title: title),
+              ),
+            ),
+            child: SizedBox(
+              height: 220,
+              child: PreviewWidget(type: 'video', path: path),
+            ),
+          );
+        }
+
+        return InkWell(
+          onTap: () {},
+          child: SizedBox(
+            height: 220,
+            child: PreviewWidget(type: item.mainType, path: path),
+          ),
+        );
+      },
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/item/widgets/note_preview_edit.dart">
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'package:note_app_pp/data/app_database.dart';
+import 'package:note_app_pp/data/providers.dart';
+import 'full_screen_note_editor.dart';
+
+class NotePreviewAndEdit extends ConsumerWidget {
+  const NotePreviewAndEdit({super.key, required this.item});
+  final Item item;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final db = ref.watch(dbProvider);
+
+    return InkWell(
+      onTap: () async {
+        await Navigator.push<String>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => FullScreenNoteEditor(
+              initialText: item.mainData,
+              onSave: (text) async {
+                await db.itemsDao.updateMainData(item.id, text);
+              },
+            ),
+          ),
+        );
+      },
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Text(
+          item.mainData.isEmpty ? '(Empty note)' : item.mainData,
+          maxLines: 8,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/item/widgets/preview_widget.dart">
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+
+class PreviewWidget extends StatelessWidget {
+  const PreviewWidget({
+    super.key,
+    required this.type,
+    required this.path,
+  });
+
+  final String type;
+  final String path;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = File(path);
+    if (!f.existsSync()) {
+      return const Center(child: Text('Missing file'));
+    }
+
+    switch (type) {
+      case 'photo':
+        return Image.file(f, fit: BoxFit.cover);
+      case 'video':
+        return const Center(
+          child: Icon(Icons.play_circle, size: 72),
+        );
+      case 'pdf':
+        return const Center(
+          child: Icon(Icons.picture_as_pdf, size: 72),
+        );
+      case 'voice':
+        return const Center(
+          child: Icon(Icons.audiotrack, size: 72),
+        );
+      default:
+        return const SizedBox.shrink();
+    }
+  }
+}
+</file>
+
+<file path="ui/screens/local_video_screen.dart">
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+
+class LocalVideoScreen extends StatefulWidget {
+  const LocalVideoScreen({
+    super.key,
+    required this.file,
+    required this.title,
+  });
+
+  final File file;
+  final String title;
+
+  @override
+  State<LocalVideoScreen> createState() => _LocalVideoScreenState();
+}
+
+class _LocalVideoScreenState extends State<LocalVideoScreen> {
+  VideoPlayerController? _c;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  Future<void> _init() async {
+    final c = VideoPlayerController.file(widget.file);
+    await c.initialize();
+    await c.play();
+    setState(() => _c = c);
+  }
+
+  @override
+  void dispose() {
+    final c = _c;
+    _c = null;
+    c?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final c = _c;
+    return Scaffold(
+      body: SafeArea(
+        child: c == null
+            ? const Center(child: CircularProgressIndicator())
+            : Stack(
+                children: [
+                  Center(
+                    child: AspectRatio(
+                      aspectRatio: c.value.aspectRatio,
+                      child: VideoPlayer(c),
+                    ),
+                  ),
+                  Positioned(
+                    top: 8,
+                    left: 8,
+                    right: 8,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back),
+                          onPressed: () => Navigator.pop(context),
+                        ),
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Positioned(
+                    bottom: 8,
+                    left: 12,
+                    right: 12,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        VideoProgressIndicator(c, allowScrubbing: true),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () => setState(() {
+                                c.value.isPlaying ? c.pause() : c.play();
+                              }),
+                              icon: Icon(c.value.isPlaying ? Icons.pause : Icons.play_arrow),
+                            ),
+                            Text(_fmt(c.value.position),),
+                            const Spacer(),
+                            Text(_fmt(c.value.duration),),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final h = d.inHours;
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+}
+</file>
+
+<file path="ui/screens/media_viewer_screen.dart">
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+
+import '../widgets/audio_player_widget.dart';
+import '../widgets/pdf_viewer_widget.dart';
+import '../widgets/photo_viewer_widget.dart';
+import '../widgets/video_player_widget.dart';
+import '../common/video_meta.dart';
+
+class MediaViewerScreen extends StatelessWidget {
+  const MediaViewerScreen({
+    super.key,
+    required this.title,
+    required this.type,
+    this.noteText,
+    this.filePath,
+    this.youtubeUrl,
+  });
+
+  final String title;
+  final String type;
+  final String? noteText;
+  final String? filePath;
+
+  final String? youtubeUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+      body: SafeArea(
+        child: _SafeViewer(
+          builder: () => _buildBody(context),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
+    if (type == 'note') {
+      final t = (noteText ?? '').trim();
+      return SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Text(t.isEmpty ? '(Empty note)' : t),
+      );
+    }
+
+    if (type == 'video') {
+      final local = (filePath ?? '').trim();
+      final yt = (youtubeUrl ?? '').trim();
+
+      final hasLocal = local.isNotEmpty && File(local).existsSync();
+      final hasYt = yt.isNotEmpty && tryExtractYoutubeId(yt) != null;
+
+      if (!hasLocal && !hasYt) return const Center(child: Text('No video source'));
+
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: VideoPlayerWidget(
+          localFile: hasLocal ? File(local) : null,
+          youtubeUrl: hasYt ? yt : null,
+        ),
+      );
+    }
+
+    final p = (filePath ?? '').trim();
+    if (p.isEmpty) return const Center(child: Text('No file'));
+
+    final f = File(p);
+    if (!f.existsSync()) return const Center(child: Text('File unavailable'));
+
+    switch (type) {
+      case 'photo':
+        return PhotoViewerWidget(file: f);
+      case 'voice':
+        return Padding(
+          padding: const EdgeInsets.all(16),
+          child: AudioPlayerWidget(file: f),
+        );
+      case 'pdf':
+        return PdfViewerWidget(file: f);
+      default:
+        return const Center(child: Text('Unsupported'));
+    }
+  }
+}
+
+class _SafeViewer extends StatelessWidget {
+  const _SafeViewer({required this.builder});
+  final Widget Function() builder;
+
+  @override
+  Widget build(BuildContext context) {
+    try {
+      return builder();
+    } catch (_) {
+      return const Center(child: Text('Failed to open this media.'));
+    }
+  }
+}
+</file>
+
+<file path="ui/screens/settings_screen.dart">
+import 'package:flutter/material.dart';
+
+class SettingsScreen extends StatelessWidget {
+  const SettingsScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Settings')),
+      body: const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'Settings (Lock removed).\n\nYou can add future settings here (backup/export/theme, etc.).',
+        ),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="ui/screens/youtube_block_viewer_screen.dart">
+// lib/ui/screens/youtube_block_viewer_screen.dart
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+
+import '../widgets/youtube_focused_player.dart';
+import '../../data/app_database.dart';
+import '../../data/providers.dart';
+import '../common/confirm_dialog.dart';
+import '../common/snackbar.dart';
+import '../screens/item/item_block_meta.dart';
+import '../screens/item/item_rename_dialog.dart';
+import '../screens/item/item_share.dart';
+import '../common/video_meta.dart';
+
+class YoutubeBlockViewerScreen extends ConsumerStatefulWidget {
+  const YoutubeBlockViewerScreen({super.key, required this.blockId});
+
+  final String blockId;
+
+  @override
+  ConsumerState<YoutubeBlockViewerScreen> createState() =>
+      _YoutubeBlockViewerScreenState();
+}
+
+class _YoutubeBlockViewerScreenState
+    extends ConsumerState<YoutubeBlockViewerScreen> {
+  bool _isFullScreen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final db = ref.watch(dbProvider);
+
+    return StreamBuilder<DetailBlock?>(
+      stream: (db.select(
+        db.detailBlocks,
+      )..where((t) => t.id.equals(widget.blockId))).watchSingleOrNull(),
+      builder: (context, snap) {
+        final block = snap.data;
+        if (block == null) {
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
+        final yt = metaYoutubeUrl(block.meta);
+        final title = blockTitle(block);
+        return Scaffold(
+          backgroundColor: _isFullScreen ? Colors.black : null,
+          appBar: _isFullScreen
+              ? null
+              : AppBar(
+                  title: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  actions: [
+                    IconButton(
+                      onPressed: () async {
+                        final url = await showRenameDialog(context, yt ?? '');
+                        final v = (url ?? '').trim();
+                        if (v.isEmpty) {
+                          await setBlockYoutubeUrl(db, block, null);
+                          if (context.mounted) {
+                            showSnack(context, 'YouTube link removed');
+                          }
+                          return;
+                        }
+                        if (tryExtractYoutubeId(v) == null) {
+                          if (context.mounted) {
+                            showSnack(context, 'Invalid YouTube link');
+                          }
+                          return;
+                        }
+                        await setBlockYoutubeUrl(db, block, v);
+                        if (context.mounted) {
+                          showSnack(context, 'YouTube link saved');
+                        }
+                      },
+                      icon: const Icon(Icons.change_circle),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share),
+                      onPressed: () => shareBlock(context, db, block),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.edit),
+                      onPressed: () async {
+                        final t = await showRenameDialog(context, title);
+                        if (t != null) await setBlockTitle(db, block, t);
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.delete),
+                      onPressed: () async {
+                        final ok = await showConfirmDialog(
+                          context,
+                          title: 'Delete block?',
+                          message: 'Remove this YouTube block?',
+                        );
+                        if (!ok) return;
+                        await db.blocksDao.deleteBlock(block.id);
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                    ),
+                  ],
+                ),
+          body: (yt == null || tryExtractYoutubeId(yt) == null)
+              ? const Center(child: Text('Invalid / missing YouTube link'))
+              : Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: YoutubeFocusedPlayer(youtubeUrl: yt),
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _YoutubeFullscreenAwarePlayer extends StatefulWidget {
+  const _YoutubeFullscreenAwarePlayer({
+    required this.youtubeUrl,
+    required this.onFullscreenChanged,
+  });
+
+  final String youtubeUrl;
+  final ValueChanged<bool> onFullscreenChanged;
+
+  @override
+  State<_YoutubeFullscreenAwarePlayer> createState() =>
+      _YoutubeFullscreenAwarePlayerState();
+}
+
+class _YoutubeFullscreenAwarePlayerState
+    extends State<_YoutubeFullscreenAwarePlayer> {
+  YoutubePlayerController? _controller;
+  bool _lastFull = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  void _init() {
+    final id = tryExtractYoutubeId(widget.youtubeUrl);
+    if (id == null) return;
+
+    _controller = YoutubePlayerController(
+      initialVideoId: id,
+      flags: const YoutubePlayerFlags(
+        autoPlay: false,
+        controlsVisibleAtStart: true,
+        enableCaption: true,
+      ),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant _YoutubeFullscreenAwarePlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.youtubeUrl.trim() != widget.youtubeUrl.trim()) {
+      _controller?.dispose();
+      _controller = null;
+      _lastFull = false;
+      _init();
+      if (mounted) setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  Future<void> _enterFullscreen() async {
+    if (kIsWeb) return;
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  Future<void> _exitFullscreen() async {
+    if (kIsWeb) return;
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+    ]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final id = tryExtractYoutubeId(widget.youtubeUrl);
+    if (id == null) return const Center(child: Text('Invalid YouTube link'));
+
+    final c = _controller;
+    if (c == null) return const Center(child: CircularProgressIndicator());
+
+    final ytPlayer = YoutubePlayer(
+      controller: c,
+      aspectRatio: 16 / 9,
+      showVideoProgressIndicator: true,
+    );
+
+    return YoutubePlayerBuilder(
+      player: ytPlayer,
+      onEnterFullScreen: _enterFullscreen,
+      onExitFullScreen: _exitFullscreen,
+      builder: (context, player) {
+        return ValueListenableBuilder<YoutubePlayerValue>(
+          valueListenable: c,
+          builder: (context, value, _) {
+            final full = value.isFullScreen;
+
+            if (full != _lastFull) {
+              _lastFull = full;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                widget.onFullscreenChanged(full);
+              });
+            }
+
+            // ✅ Fullscreen: ONLY show the player, no extra UI, no clipping.
+            if (full) {
+              return ColoredBox(
+                color: Colors.black,
+                child: Center(child: player),
+              );
+            }
+
+            // Normal: clip + allow surrounding UI.
+            return Padding(
+              padding: const EdgeInsets.all(12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: player,
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+</file>
+
+<file path="ui/widgets/audio_player_widget.dart">
+import 'dart:async';
+import 'dart:io';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart';
+import 'package:just_waveform/just_waveform.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:record/record.dart';
+
+class AudioPlayerWidget extends StatefulWidget {
+  const AudioPlayerWidget({
+    super.key,
+    required this.file,
+    this.compact = false,
+    this.showTimes = true,
+  });
+
+  final File file;
+
+  /// Compact UI: smaller paddings + smaller waveform/slider height.
+  final bool compact;
+
+  /// Show elapsed + total time (in the same row).
+  final bool showTimes;
+
+  static Future<bool> recordToFile(
+    BuildContext context, {
+    required String outputPath,
+  }) async {
+    final status = await Permission.microphone.request();
+    if (!status.isGranted) return false;
+
+    final rec = AudioRecorder();
+    try {
+      final can = await rec.hasPermission();
+      if (!can) return false;
+
+      await rec.start(
+        const RecordConfig(encoder: AudioEncoder.aacLc),
+        path: outputPath,
+      );
+
+      final ok = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) => _RecordingDialog(rec: rec),
+      );
+      return ok ?? false;
+    } finally {
+      await rec.dispose();
+    }
+  }
+
+  @override
+  State<AudioPlayerWidget> createState() => _AudioPlayerWidgetState();
+}
+
+class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
+  final _player = AudioPlayer();
+
+  StreamSubscription<PlayerState>? _stateSub;
+  Future<Waveform?>? _waveformFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _initPlayer();
+    _waveformFuture = _loadOrCreateWaveform(widget.file);
+
+    _stateSub = _player.playerStateStream.listen((s) async {
+      if (s.processingState == ProcessingState.completed) {
+        // Requirement: snap back to 0 and pause at end.
+        await _player.pause();
+        await _player.seek(Duration.zero);
+      }
+    });
+  }
+
+  Future<void> _initPlayer() async {
+    if (!await widget.file.exists()) return;
+    await _player.setFilePath(widget.file.path);
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _stateSub?.cancel();
+    _player.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.file.existsSync()) {
+      return const Text('Audio file unavailable');
+    }
+
+    final iconSize = widget.compact ? 20.0 : 24.0;
+    final buttonPad = widget.compact ? EdgeInsets.zero : const EdgeInsets.all(8);
+    final constraints =
+        widget.compact ? const BoxConstraints(minWidth: 36, minHeight: 36) : null;
+
+    return StreamBuilder<PlayerState>(
+      stream: _player.playerStateStream,
+      builder: (context, stateSnap) {
+        final state = stateSnap.data;
+        final playing = state?.playing ?? false;
+        final processing = state?.processingState ?? ProcessingState.idle;
+
+        return StreamBuilder<Duration?>(
+          stream: _player.durationStream,
+          builder: (context, dSnap) {
+            final total = dSnap.data ?? Duration.zero;
+
+            return StreamBuilder<Duration>(
+              stream: _player.positionStream,
+              builder: (context, pSnap) {
+                final pos = pSnap.data ?? Duration.zero;
+
+                final totalMs = max(1, total.inMilliseconds);
+                final posMs = pos.inMilliseconds.clamp(0, totalMs);
+
+                Future<void> togglePlayPause() async {
+                  final atEnd = total > Duration.zero && posMs >= totalMs;
+                  if (processing == ProcessingState.completed || atEnd) {
+                    await _player.seek(Duration.zero);
+                  }
+                  if (_player.playing) {
+                    await _player.pause();
+                  } else {
+                    await _player.play();
+                  }
+                }
+
+                return Row(
+                  mainAxisSize: MainAxisSize.max,
+                  children: [
+                    IconButton(
+                      visualDensity:
+                          widget.compact ? VisualDensity.compact : VisualDensity.standard,
+                      padding: buttonPad,
+                      constraints: constraints,
+                      iconSize: iconSize,
+                      onPressed: togglePlayPause,
+                      icon: Icon(playing ? Icons.pause : Icons.play_arrow),
+                    ),
+                    if (widget.showTimes) ...[
+                      Text(_fmt(Duration(milliseconds: posMs))),
+                      const SizedBox(width: 8),
+                    ],
+                    Expanded(
+                      child: FutureBuilder<Waveform?>(
+                        future: _waveformFuture,
+                        builder: (context, wfSnap) {
+                          final wf = wfSnap.data;
+
+                          // Taller waveform (per your request)
+                          final h = widget.compact ? 34.0 : 52.0;
+
+                          if (wf == null) {
+                            return SliderTheme(
+                              data: SliderTheme.of(context).copyWith(
+                                trackHeight: widget.compact ? 2.5 : null,
+                                thumbShape: RoundSliderThumbShape(
+                                  enabledThumbRadius: widget.compact ? 6 : 8,
+                                ),
+                                overlayShape: RoundSliderOverlayShape(
+                                  overlayRadius: widget.compact ? 10 : 14,
+                                ),
+                              ),
+                              child: Slider(
+                                value: posMs.toDouble(),
+                                max: totalMs.toDouble(),
+                                onChanged: (v) => _player.seek(
+                                  Duration(milliseconds: v.toInt()),
+                                ),
+                              ),
+                            );
+                          }
+
+                          return _WaveformSeekBar(
+                            height: h,
+                            waveform: wf,
+                            positionMs: posMs,
+                            durationMs: totalMs,
+                            compact: widget.compact,
+                            onSeekMs: (ms) => _player.seek(Duration(milliseconds: ms)),
+                          );
+                        },
+                      ),
+                    ),
+                    if (widget.showTimes) ...[
+                      const SizedBox(width: 8),
+                      Text(_fmt(total)),
+                    ],
+                  ],
+                );
+              },
+            );
+          },
+        );
+      },
+    );
+  }
+
+  static String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final h = d.inHours;
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+}
+
+class _WaveformSeekBar extends StatelessWidget {
+  const _WaveformSeekBar({
+    required this.height,
+    required this.waveform,
+    required this.positionMs,
+    required this.durationMs,
+    required this.onSeekMs,
+    required this.compact,
+  });
+
+  final double height;
+  final Waveform waveform;
+  final int positionMs;
+  final int durationMs;
+  final ValueChanged<int> onSeekMs;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, c) {
+        final w = max(1.0, c.maxWidth);
+        int msFromDx(double dx) {
+          final t = (dx / w).clamp(0.0, 1.0);
+          return (t * durationMs).round();
+        }
+
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onPanDown: (d) => onSeekMs(msFromDx(d.localPosition.dx)),
+          onPanUpdate: (d) => onSeekMs(msFromDx(d.localPosition.dx)),
+          onTapDown: (d) => onSeekMs(msFromDx(d.localPosition.dx)),
+          child: SizedBox(
+            height: height,
+            child: CustomPaint(
+              painter: _WaveformPainter(
+                waveform: waveform,
+                progress: durationMs <= 0 ? 0.0 : (positionMs / durationMs).clamp(0.0, 1.0),
+                theme: Theme.of(context),
+                compact: compact,
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _WaveformPainter extends CustomPainter {
+  _WaveformPainter({
+    required this.waveform,
+    required this.progress,
+    required this.theme,
+    required this.compact,
+  });
+
+  final Waveform waveform;
+  final double progress;
+  final ThemeData theme;
+  final bool compact;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final data = waveform.data;
+    if (data.isEmpty) return;
+
+    final pixels = data.length ~/ 2;
+    if (pixels <= 0) return;
+
+    final centerY = size.height / 2;
+
+    // Bigger wave peaks (per your request), but keep a bit of padding to avoid clipping.
+    final amp = size.height * (compact ? 0.60 : 0.62);
+
+    final stepX = size.width / pixels;
+    final playedCount = (pixels * progress).floor().clamp(0, pixels);
+
+    final playedPaint = Paint()
+      ..color = theme.colorScheme.primary
+      // Slightly thicker strokes to look "bigger".
+      ..strokeWidth = compact ? 2.0 : 2.6
+      ..strokeCap = StrokeCap.round;
+
+    final unplayedPaint = Paint()
+      ..color = theme.colorScheme.onSurfaceVariant.withOpacity(0.55)
+      ..strokeWidth = compact ? 2.0 : 2.6
+      ..strokeCap = StrokeCap.round;
+
+    void drawRange(int start, int end, Paint paint) {
+      for (var i = start; i < end; i++) {
+        final minS = data[i * 2].toDouble();
+        final maxS = data[i * 2 + 1].toDouble();
+
+        // 16-bit PCM min/max.
+        final minN = (minS / 32768.0).clamp(-1.0, 1.0);
+        final maxN = (maxS / 32768.0).clamp(-1.0, 1.0);
+
+        final x = (i + 0.5) * stepX;
+        final y1 = centerY - (maxN * amp);
+        final y2 = centerY - (minN * amp);
+
+        canvas.drawLine(Offset(x, y1), Offset(x, y2), paint);
+      }
+    }
+
+    drawRange(0, playedCount, playedPaint);
+    drawRange(playedCount, pixels, unplayedPaint);
+
+    final mid = Paint()
+      ..color = theme.dividerColor.withOpacity(0.35)
+      ..strokeWidth = 1;
+    canvas.drawLine(Offset(0, centerY), Offset(size.width, centerY), mid);
+  }
+
+  @override
+  bool shouldRepaint(covariant _WaveformPainter old) {
+    return old.progress != progress ||
+        old.waveform.data != waveform.data ||
+        old.compact != compact ||
+        old.theme.brightness != theme.brightness ||
+        old.theme.colorScheme.primary != theme.colorScheme.primary;
+  }
+}
+
+Future<Waveform?> _loadOrCreateWaveform(File audioFile) async {
+  try {
+    if (!await audioFile.exists()) return null;
+
+    final tmp = await getTemporaryDirectory();
+    final stat = await audioFile.stat();
+    final key = '${p.basename(audioFile.path)}_${stat.size}_${stat.modified.millisecondsSinceEpoch}';
+    final out = File(p.join(tmp.path, 'wave_${key.hashCode}.dat'));
+
+    if (!await out.exists()) {
+      await for (final _ in JustWaveform.extract(
+        audioInFile: audioFile,
+        waveOutFile: out,
+        zoom: const WaveformZoom.pixelsPerSecond(90),
+      )) {
+        // progress stream (ignored)
+      }
+    }
+
+    return JustWaveform.parse(out);
+  } catch (_) {
+    return null;
+  }
+}
+
+class _RecordingDialog extends StatefulWidget {
+  const _RecordingDialog({required this.rec});
+  final AudioRecorder rec;
+
+  @override
+  State<_RecordingDialog> createState() => _RecordingDialogState();
+}
+
+class _RecordingDialogState extends State<_RecordingDialog> {
+  bool _recording = true;
+  Duration _elapsed = Duration.zero;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!_recording) return;
+      setState(() => _elapsed += const Duration(seconds: 1));
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$m:$s';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _recording ? 'Recording' : 'Stopped',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              _fmt(_elapsed),
+              style: Theme.of(context)
+                  .textTheme
+                  .displaySmall
+                  ?.copyWith(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 16),
+            _LiveAudioWave(rec: widget.rec, active: _recording),
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                Expanded(
+                  child: TextButton(
+                    onPressed: () async {
+                      await widget.rec.stop();
+                      if (!mounted) return;
+                      Navigator.pop(context, false);
+                    },
+                    child: const Text('Cancel'),
+                  ),
+                ),
+                Expanded(
+                  child: FilledButton(
+                    onPressed: () async {
+                      await widget.rec.stop();
+                      if (!mounted) return;
+                      setState(() => _recording = false);
+                      Navigator.pop(context, true);
+                    },
+                    child: const Text('Stop & Save'),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _LiveAudioWave extends StatefulWidget {
+  const _LiveAudioWave({required this.rec, required this.active});
+  final AudioRecorder rec;
+  final bool active;
+
+  @override
+  State<_LiveAudioWave> createState() => _LiveAudioWaveState();
+}
+
+class _LiveAudioWaveState extends State<_LiveAudioWave> {
+  StreamSubscription<Amplitude>? _sub;
+  final List<double> _levels = List<double>.filled(24, 0.0, growable: true);
+
+  @override
+  void initState() {
+    super.initState();
+    _sub = widget.rec
+        .onAmplitudeChanged(const Duration(milliseconds: 80))
+        .listen((amp) {
+      if (!widget.active) return;
+      final db = amp.current.clamp(-60.0, 0.0);
+      final normalized = (db + 60) / 60;
+      setState(() {
+        _levels.removeAt(0);
+        _levels.add(normalized);
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _sub?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 64,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: _levels.map((v) {
+          final h = 8 + pow(v, 1.4) * 52;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 2),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 80),
+              width: 4,
+              height: h.toDouble(),
+              decoration: BoxDecoration(
+                color: widget.active ? Colors.redAccent : Colors.grey.shade400,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="ui/widgets/pdf_viewer_widget.dart">
+import 'dart:io';
+import 'package:flutter/material.dart';
+import 'package:pdfrx/pdfrx.dart';
+
+class PdfViewerWidget extends StatelessWidget {
+  const PdfViewerWidget({super.key, required this.file});
+  final File file;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!file.existsSync()) {
+      return const Center(child: Text('PDF unavailable'));
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: PdfViewer.file(
+        file.path,
+        params: const PdfViewerParams(),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="ui/widgets/photo_viewer_widget.dart">
+import 'dart:io';
+import 'package:flutter/material.dart';
+
+class PhotoViewerWidget extends StatelessWidget {
+  const PhotoViewerWidget({super.key, required this.file});
+  final File file;
+
+  @override
+  Widget build(BuildContext context) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: InteractiveViewer(
+        minScale: 1,
+        maxScale: 4,
+        child: Image.file(file, fit: BoxFit.contain),
+      ),
+    );
+  }
+}
+</file>
+
+<file path="ui/widgets/video_player_widget.dart">
+// lib/ui/widgets/video_player_widget.dart
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:video_player/video_player.dart';
+
+import '../common/video_meta.dart';
+import 'youtube_inline_player.dart';
+
+class VideoPlayerWidget extends StatefulWidget {
+  const VideoPlayerWidget({
+    super.key,
+    required this.localFile,
+    required this.youtubeUrl,
+  });
+
+  final File? localFile;
+  final String? youtubeUrl;
+
+  @override
+  State<VideoPlayerWidget> createState() => _VideoPlayerWidgetState();
+}
+
+class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
+  VideoPlayerController? _local;
+  bool _localReady = false;
+
+  bool get _hasLocal =>
+      widget.localFile != null && widget.localFile!.existsSync();
+
+  bool get _hasYt =>
+      widget.youtubeUrl != null &&
+      tryExtractYoutubeId(widget.youtubeUrl!) != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _initLocalIfNeeded();
+  }
+
+  Future<void> _initLocalIfNeeded() async {
+    if (!_hasLocal) return;
+    _local ??= VideoPlayerController.file(widget.localFile!);
+    if (!_local!.value.isInitialized) await _local!.initialize();
+    _localReady = true;
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void didUpdateWidget(covariant VideoPlayerWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    final localChanged = oldWidget.localFile?.path != widget.localFile?.path;
+    if (localChanged) {
+      _disposeLocal();
+      _localReady = false;
+      _initLocalIfNeeded();
+    }
+  }
+
+  void _disposeLocal() {
+    final c = _local;
+    _local = null;
+    c?.dispose();
+  }
+
+  @override
+  void dispose() {
+    _disposeLocal();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_hasYt && !_hasLocal) {
+      return YoutubeInlinePlayer(youtubeUrl: widget.youtubeUrl!.trim());
+    }
+    if (_hasLocal && !_hasYt) return _buildLocal(context);
+    if (_hasYt) return YoutubeInlinePlayer(youtubeUrl: widget.youtubeUrl!.trim());
+    if (_hasLocal) return _buildLocal(context);
+    return const Center(child: Text('No video source'));
+  }
+
+  Widget _buildLocal(BuildContext context) {
+    if (!_hasLocal) return const Center(child: Text('Offline video unavailable'));
+    if (!_localReady || _local == null || !_local!.value.isInitialized) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final c = _local!;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AspectRatio(
+          aspectRatio: c.value.aspectRatio,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: VideoPlayer(c),
+          ),
+        ),
+        VideoProgressIndicator(c, allowScrubbing: true),
+        Row(
+          children: [
+            IconButton(
+              onPressed: () =>
+                  setState(() => c.value.isPlaying ? c.pause() : c.play()),
+              icon: Icon(c.value.isPlaying ? Icons.pause : Icons.play_arrow),
+            ),
+            Text(_fmt(c.value.position)),
+            const Spacer(),
+            Text(_fmt(c.value.duration)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _fmt(Duration d) {
+    final m = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final s = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final h = d.inHours;
+    return h > 0 ? '$h:$m:$s' : '$m:$s';
+  }
+}
+</file>
+
+<file path="ui/widgets/youtube_focused_player.dart">
+// lib/ui/widgets/youtube_focused_player.dart
+import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:screen_brightness/screen_brightness.dart';
+import 'package:volume_controller/volume_controller.dart';
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
+
+import '../common/video_meta.dart';
+
+class YoutubeFocusedPlayer extends StatefulWidget {
+  const YoutubeFocusedPlayer({
+    super.key,
+    required this.youtubeUrl,
+    this.borderRadius = 12,
+  });
+
+  final String youtubeUrl;
+  final double borderRadius;
+
+  @override
+  State<YoutubeFocusedPlayer> createState() => _YoutubeFocusedPlayerState();
+}
+
+class _YoutubeFocusedPlayerState extends State<YoutubeFocusedPlayer> {
+  YoutubePlayerController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _init();
+  }
+
+  void _init() {
+    final id = tryExtractYoutubeId(widget.youtubeUrl);
+    if (id == null) return;
+
+    _controller = YoutubePlayerController(
+      initialVideoId: id,
+      flags: const YoutubePlayerFlags(
+        autoPlay: false,
+        controlsVisibleAtStart: true,
+        enableCaption: true,
+      ),
+    );
+  }
+
+  @override
+  void didUpdateWidget(covariant YoutubeFocusedPlayer oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.youtubeUrl.trim() != widget.youtubeUrl.trim()) {
+      _controller?.dispose();
+      _controller = null;
+      _init();
+      if (mounted) setState(() {});
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.dispose();
+    super.dispose();
+  }
+
+  double _safePlaybackRate(YoutubePlayerController c) {
+    try {
+      final r = c.value.playbackRate;
+      if (r.isFinite && r > 0) return r;
+    } catch (_) {}
+    return 1.0;
+  }
+
+  Future<void> _setPlaybackRateSafe(
+    YoutubePlayerController c,
+    double rate,
+  ) async {
+    try {
+      c.setPlaybackRate(rate);
+    } catch (_) {}
+  }
+
+  Future<void> _openFullscreen() async {
+    final c = _controller;
+    if (c == null) return;
+
+    final startAt = c.value.position;
+    final wasPlaying = c.value.isPlaying;
+    final rate = _safePlaybackRate(c);
+
+    // ✅ prevent overlap echo during handoff
+    try {
+      c.pause();
+    } catch (_) {}
+
+    final res = await Navigator.of(context).push<_FullscreenResult>(
+      PageRouteBuilder<_FullscreenResult>(
+        opaque: true,
+        barrierDismissible: false,
+        transitionDuration: const Duration(milliseconds: 180),
+        reverseTransitionDuration: const Duration(milliseconds: 160),
+        pageBuilder: (_, __, ___) => _YoutubeFullscreenPage(
+          youtubeUrl: widget.youtubeUrl,
+          startAt: startAt,
+          resumePlaying: wasPlaying,
+          playbackRate: rate,
+        ),
+        transitionsBuilder: (_, anim, __, child) {
+          return FadeTransition(
+            opacity: CurvedAnimation(parent: anim, curve: Curves.easeOut),
+            child: child,
+          );
+        },
+      ),
+    );
+
+    if (res == null) {
+      try {
+        c.seekTo(startAt);
+        _setPlaybackRateSafe(c, rate);
+        if (wasPlaying) c.play();
+      } catch (_) {}
+      return;
+    }
+
+    try {
+      c.seekTo(res.position);
+      _setPlaybackRateSafe(c, res.playbackRate);
+      if (res.shouldPlay) {
+        c.play();
+      } else {
+        c.pause();
+      }
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final id = tryExtractYoutubeId(widget.youtubeUrl);
+    if (id == null) return const Center(child: Text('Invalid YouTube link'));
+
+    final c = _controller;
+    if (c == null) return const Center(child: CircularProgressIndicator());
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(widget.borderRadius),
+      child: YoutubePlayer(
+        controller: c,
+        aspectRatio: 16 / 9,
+        showVideoProgressIndicator: true,
+        bottomActions: [
+          const CurrentPosition(),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ProgressBar(
+              isExpanded: true,
+              colors: ProgressBarColors(
+                playedColor: Theme.of(context).colorScheme.primary,
+                handleColor: Theme.of(context).colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          const RemainingDuration(),
+          const PlaybackSpeedButton(),
+          IconButton(
+            tooltip: 'Fullscreen',
+            icon: const Icon(Icons.fullscreen),
+            onPressed: _openFullscreen,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _YoutubeFullscreenPage extends StatefulWidget {
+  const _YoutubeFullscreenPage({
+    required this.youtubeUrl,
+    required this.startAt,
+    required this.resumePlaying,
+    required this.playbackRate,
+  });
+
+  final String youtubeUrl;
+  final Duration startAt;
+  final bool resumePlaying;
+  final double playbackRate;
+
+  @override
+  State<_YoutubeFullscreenPage> createState() => _YoutubeFullscreenPageState();
+}
+
+enum _GestureZone { left, middle, right, none }
+
+enum _HudKind { none, volume, brightness }
+
+class _YoutubeFullscreenPageState extends State<_YoutubeFullscreenPage> {
+  YoutubePlayerController? _c;
+
+  bool _didApplyStart = false;
+  bool _ready = false;
+
+  // Gesture state
+  _GestureZone _zone = _GestureZone.none;
+  double _startDy = 0;
+  double _startValue = 0;
+  bool _didExitBySwipe = false;
+
+  // Device state
+  final _brightness = ScreenBrightness();
+  final _volume = VolumeController.instance;
+  double _currentBrightness = 0.5;
+  double _currentVolume = 0.5;
+
+  // HUD
+  _HudKind _hud = _HudKind.none;
+  double _hudValue = 0;
+  String _hudText = '';
+  IconData _hudIcon = Icons.tune;
+
+  @override
+  void initState() {
+    super.initState();
+    _enterImmersive();
+    _initController();
+    _initDeviceState();
+  }
+
+  void _initController() {
+    final id = tryExtractYoutubeId(widget.youtubeUrl);
+    if (id == null) return;
+
+    _c = YoutubePlayerController(
+      initialVideoId: id,
+      flags: const YoutubePlayerFlags(
+        autoPlay: false,
+        controlsVisibleAtStart: true,
+        enableCaption: true,
+      ),
+    );
+  }
+
+  Future<void> _initDeviceState() async {
+    if (kIsWeb) return;
+    try {
+      _currentBrightness = (await _brightness.current).clamp(0.0, 1.0);
+    } catch (_) {}
+    try {
+      _currentVolume = (await _volume.getVolume()).clamp(0.0, 1.0);
+    } catch (_) {}
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _enterImmersive() async {
+    if (kIsWeb) return;
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+  }
+
+  Future<void> _exitImmersive() async {
+    if (kIsWeb) return;
+    await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    await SystemChrome.setPreferredOrientations(const [
+      DeviceOrientation.portraitUp,
+    ]);
+  }
+
+  Future<void> _close() async {
+    final c = _c;
+    final pos = c?.value.position ?? Duration.zero;
+    final playing = c?.value.isPlaying ?? false;
+    final rate = c?.value.playbackRate ?? 1.0;
+
+    await _exitImmersive();
+    if (!mounted) return;
+
+    Navigator.of(context).pop(
+      _FullscreenResult(position: pos, shouldPlay: playing, playbackRate: rate),
+    );
+  }
+
+  @override
+  void dispose() {
+    _c?.dispose();
+    _exitImmersive();
+    super.dispose();
+  }
+
+  _GestureZone _zoneForDx(BuildContext context, double dx) {
+    final w = MediaQuery.of(context).size.width;
+    if (w <= 0) return _GestureZone.none;
+
+    final leftEnd = w * 0.33;
+    final rightStart = w * 0.67;
+
+    if (dx < leftEnd) return _GestureZone.left;
+    if (dx > rightStart) return _GestureZone.right;
+    return _GestureZone.middle;
+  }
+
+  Future<void> _applyBrightness(double v) async {
+    final nv = v.clamp(0.0, 1.0);
+    _currentBrightness = nv;
+    try {
+      await _brightness.setScreenBrightness(nv);
+    } catch (_) {}
+  }
+
+  Future<void> _applyVolume(double v) async {
+    final nv = v.clamp(0.0, 1.0);
+    _currentVolume = nv;
+    try {
+      await _volume.setVolume(nv);
+    } catch (_) {}
+  }
+
+  void _showHud(_HudKind kind, double v) {
+    _hud = kind;
+    _hudValue = v.clamp(0.0, 1.0);
+    final pct = (_hudValue * 100).round();
+    if (kind == _HudKind.volume) {
+      _hudIcon = Icons.volume_up;
+      _hudText = 'Volume $pct%';
+    } else {
+      _hudIcon = Icons.brightness_6;
+      _hudText = 'Brightness $pct%';
+    }
+    if (mounted) setState(() {});
+  }
+
+  void _hideHud() {
+    _hud = _HudKind.none;
+    if (mounted) setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final id = tryExtractYoutubeId(widget.youtubeUrl);
+    if (id == null) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: Text(
+            'Invalid YouTube link',
+            style: TextStyle(color: Colors.white),
+          ),
+        ),
+      );
+    }
+
+    final c = _c;
+    if (c == null) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    return WillPopScope(
+      onWillPop: () async {
+        await _close();
+        return false;
+      },
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Stack(
+            children: [
+              // Player
+              Center(
+                child: AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: YoutubePlayer(
+                    controller: c,
+                    showVideoProgressIndicator: true,
+                    onReady: () async {
+                      if (_didApplyStart) return;
+                      _didApplyStart = true;
+
+                      try {
+                        if (widget.startAt > Duration.zero) {
+                          c.seekTo(widget.startAt);
+                        }
+                        c.setPlaybackRate(widget.playbackRate);
+                        if (widget.resumePlaying) {
+                          c.play();
+                        }
+                      } catch (_) {}
+
+                      if (mounted) setState(() => _ready = true);
+                    },
+                    bottomActions: [
+                      const CurrentPosition(),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ProgressBar(
+                          isExpanded: true,
+                          colors: ProgressBarColors(
+                            playedColor: Theme.of(context).colorScheme.primary,
+                            handleColor: Theme.of(context).colorScheme.primary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      const RemainingDuration(),
+                      const PlaybackSpeedButton(),
+                      IconButton(
+                        tooltip: 'Exit fullscreen',
+                        icon: const Icon(Icons.fullscreen_exit),
+                        onPressed: _close,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // ✅ Gesture layer (only handles vertical drags; taps still go to player controls)
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onVerticalDragStart: (d) async {
+                    _didExitBySwipe = false;
+                    _startDy = d.globalPosition.dy;
+                    _zone = _zoneForDx(context, d.localPosition.dx);
+
+                    if (_zone == _GestureZone.right) {
+                      _startValue = _currentVolume;
+                      _showHud(_HudKind.volume, _currentVolume);
+                    } else if (_zone == _GestureZone.left) {
+                      _startValue = _currentBrightness;
+                      _showHud(_HudKind.brightness, _currentBrightness);
+                    } else {
+                      _startValue = 0;
+                      _hideHud();
+                    }
+                  },
+                  onVerticalDragUpdate: (d) async {
+                    final size = MediaQuery.of(context).size;
+                    final h = size.height <= 0 ? 1.0 : size.height;
+
+                    final dy = d.globalPosition.dy - _startDy;
+
+                    // ✅ Middle swipe down to exit
+                    if (_zone == _GestureZone.middle && !_didExitBySwipe) {
+                      if (dy > 120) {
+                        _didExitBySwipe = true;
+                        await _close();
+                      }
+                      return;
+                    }
+
+                    // Up = increase, Down = decrease
+                    final delta = (-dy / h) * 1.6; // sensitivity
+                    final next = (_startValue + delta).clamp(0.0, 1.0);
+
+                    if (_zone == _GestureZone.right) {
+                      await _applyVolume(next);
+                      _showHud(_HudKind.volume, _currentVolume);
+                    } else if (_zone == _GestureZone.left) {
+                      await _applyBrightness(next);
+                      _showHud(_HudKind.brightness, _currentBrightness);
+                    }
+                  },
+                  onVerticalDragEnd: (_) => _hideHud(),
+                  onVerticalDragCancel: () => _hideHud(),
+                ),
+              ),
+
+              // Close button
+              Positioned(
+                top: 6,
+                left: 6,
+                child: IconButton(
+                  tooltip: 'Close',
+                  onPressed: _close,
+                  icon: const Icon(Icons.close, color: Colors.white),
+                ),
+              ),
+
+              // HUD
+              if (_hud != _HudKind.none)
+                Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.55),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_hudIcon, color: Colors.white),
+                        const SizedBox(width: 10),
+                        Text(
+                          _hudText,
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+
+              // Handoff veil while seek+rate applied
+              if (!_ready)
+                const Positioned.fill(
+                  child: IgnorePointer(
+                    child: ColoredBox(
+                      color: Colors.black,
+                      child: Center(child: CircularProgressIndicator()),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FullscreenResult {
+  const _FullscreenResult({
+    required this.position,
+    required this.shouldPlay,
+    required this.playbackRate,
+  });
+
+  final Duration position;
+  final bool shouldPlay;
+  final double playbackRate;
+}
+</file>
+</files>

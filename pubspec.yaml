@@ -1,0 +1,66 @@
+name: note_app_pp
+description: Offline-first locked notes/media organizer.
+publish_to: "none"
+
+version: 0.1.0+1
+
+environment:
+  sdk: ">=3.9.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  
+  shared_preferences: ^2.5.3
+
+  just_waveform: ^0.0.7
+  
+  flutter_colorpicker: ^1.0.3
+
+  # State & routing
+  flutter_riverpod: ^3.1.0
+  go_router: ^17.0.1
+  youtube_player_flutter: ^9.1.3
+  url_launcher: ^6.1.10
+  volume_controller: any
+  screen_brightness: any
+
+  # DB
+  drift: ^2.30.0
+  drift_flutter: ^0.2.8
+  sqlite3_flutter_libs: ^0.5.40
+  path_provider: ^2.1.5
+  path: ^1.9.0
+
+  # Security
+  flutter_secure_storage: ^10.0.0
+  local_auth: ^3.0.0
+  crypto: ^3.0.6
+
+  # Media + pickers
+  image_picker: ^1.2.1
+  file_picker: ^10.3.7
+  video_player: ^2.10.1
+  just_audio: ^0.10.5
+  record: ^6.1.2
+  pdfrx: ^2.2.18
+
+  # Permissions
+  permission_handler: ^12.0.0+1
+
+  # Utilities
+  uuid: ^4.5.1
+  intl: ^0.20.2
+  share_plus: ^12.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+  drift_dev: ^2.30.0
+  build_runner: ^2.4.13
+
+flutter:
+  uses-material-design: true
