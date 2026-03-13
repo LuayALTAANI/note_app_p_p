@@ -1,6 +1,6 @@
 # Note App P P (Flutter)
 
-Offline-first locked private notes/media organizer with nested folders, in-app viewers, free sort + detail blocks.
+private notes/media organizer with nested folders, in-app viewers, free sort + detail blocks.
 
 ## How to run
 
