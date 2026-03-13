@@ -17,8 +17,6 @@ flutter run
 ```
 
 ## Features in this MVP
-- PIN lock on launch + optional biometrics
-- Auto-lock on background + inactivity timer
 - Nested folders and items (Note / Photo / Video / Voice / PDF)
 - In-app viewers (text, image, video, audio, pdf)
 - Item details: main content + unlimited reorderable detail blocks
@@ -27,3 +25,11 @@ flutter run
 
 ## Notes
 - All files are copied to app-private storage (documents directory) under `note_app_pp_assets/`.
+
+## photos:
+
+![WhatsApp Image 2026-03-13 at 10 30 33 AM](https://github.com/user-attachments/assets/089e0c16-c94a-4cd4-9f4d-740ca8a736e8)
+
+![WhatsApp Image 2026-03-13 at 10 30 33 AM](https://github.com/user-attachments/assets/f81f76d6-ef6e-4369-ab4b-8062cb6cc670)
+
+![WhatsApp Image 2026-03-13 at 10 30 34 AM](https://github.com/user-attachments/assets/49290131-be3d-4f8c-86ad-b4066de0c6de)
