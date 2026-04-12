@@ -1,4 +1,4 @@
-// lib/ui/screens/item/item_share.dart
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -19,7 +19,6 @@ Future<void> shareItem(BuildContext context, AppDatabase db, Item item) async {
     return;
   }
 
-  // ✅ Separate YouTube vs local (no mixing logic)
   if (item.mainType == 'video' && looksLikeHttpUrl(item.mainData)) {
     await Share.share(item.mainData.trim());
     return;

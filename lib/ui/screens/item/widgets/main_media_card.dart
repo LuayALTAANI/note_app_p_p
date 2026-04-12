@@ -1,4 +1,4 @@
-// ui/screens/item/widgets/main_media_card.dart
+
 import 'package:flutter/material.dart';
 
 import 'package:note_app_pp/data/app_database.dart';

@@ -1,4 +1,4 @@
-// lib/ui/screens/item/widgets/detail_block_tile.dart
+
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +10,7 @@ import 'package:note_app_pp/ui/common/snackbar.dart';
 import 'package:note_app_pp/ui/common/video_meta.dart';
 import 'package:note_app_pp/ui/screens/local_video_screen.dart';
 import 'package:note_app_pp/ui/screens/youtube_block_viewer_screen.dart';
+import 'package:note_app_pp/ui/screens/media_viewer_screen.dart';
 import 'package:note_app_pp/ui/screens/item/item_share.dart';
 import 'package:note_app_pp/ui/widgets/audio_player_widget.dart';
 import 'package:note_app_pp/storage/file_manager.dart';
@@ -51,7 +52,6 @@ class DetailBlockTile extends ConsumerWidget {
               children: [
                 IconButton(icon: const Icon(Icons.share), onPressed: () => shareBlock(context, db, block)),
 
-                // ✅ YouTube is NOT mixed into local video: link button only for YouTube video blocks.
                 if (isYoutubeBlock || (isVideo && block.data.trim().isEmpty))
                   IconButton(
                     tooltip: 'Set / Update YouTube link',
@@ -116,7 +116,6 @@ class DetailBlockTile extends ConsumerWidget {
 
               if (isVoice) return;
 
-              // ✅ Separate local video flow: always full-screen.
               if (isLocalVideoBlock) {
                 final asset = await db.assetsDao.getById(block.data);
                 final p = asset?.path;
@@ -133,7 +132,6 @@ class DetailBlockTile extends ConsumerWidget {
                 return;
               }
 
-              // ✅ Separate YouTube flow: open a dedicated viewer screen with actions.
               if (isYoutubeBlock) {
                 Navigator.push(
                   context,
@@ -142,10 +140,22 @@ class DetailBlockTile extends ConsumerWidget {
                 return;
               }
 
-              // other media
               if (block.type != 'text' && block.data.isNotEmpty) {
                 final asset = await db.assetsDao.getById(block.data);
                 if (asset == null || !File(asset.path).existsSync()) return;
+
+                if (context.mounted) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => MediaViewerScreen(
+                        title: title,
+                        type: block.type,
+                        filePath: asset.path,
+                      ),
+                    ),
+                  );
+                }
               }
             },
           ),

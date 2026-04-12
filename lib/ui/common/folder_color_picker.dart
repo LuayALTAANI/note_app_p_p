@@ -23,7 +23,6 @@ Future<int?> showFolderColorPicker(
           ),
           const SizedBox(height: 16),
 
-          /// 🎡 COLOR WHEEL
           ColorPicker(
             pickerColor: selected,
             onColorChanged: (c) => selected = c,
@@ -33,7 +32,6 @@ Future<int?> showFolderColorPicker(
 
           const SizedBox(height: 12),
 
-          /// 🧱 PRESETS
           Align(
             alignment: Alignment.centerLeft,
             child: Text(

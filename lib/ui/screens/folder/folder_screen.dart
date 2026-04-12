@@ -45,7 +45,6 @@ class _FolderScreenState extends ConsumerState<FolderScreen> {
         final title = f?.name ?? (folderId == 'root' ? 'Root' : 'Folder');
         final sortMode = f?.sortMode ?? 'name';
 
-        // If user switches away from free sort, exit reorder mode automatically
         if (sortMode != 'free' && _reorderMode) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) setState(() => _reorderMode = false);

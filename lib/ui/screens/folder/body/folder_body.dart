@@ -39,7 +39,7 @@ class FolderBody extends ConsumerWidget {
                 border: OutlineInputBorder(),
                 labelText: 'Search in this folder',
               ),
-              // ✅ LIVE SEARCH
+              
               onChanged: (_) => onSearchChanged(),
             ),
           ),

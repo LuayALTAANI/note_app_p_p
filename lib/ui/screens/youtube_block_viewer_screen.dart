@@ -1,4 +1,4 @@
-// lib/ui/screens/youtube_block_viewer_screen.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -225,7 +225,6 @@ class _YoutubeFullscreenAwarePlayerState
               });
             }
 
-            // ✅ Fullscreen: ONLY show the player, no extra UI, no clipping.
             if (full) {
               return ColoredBox(
                 color: Colors.black,
@@ -233,7 +232,6 @@ class _YoutubeFullscreenAwarePlayerState
               );
             }
 
-            // Normal: clip + allow surrounding UI.
             return Padding(
               padding: const EdgeInsets.all(12),
               child: ClipRRect(

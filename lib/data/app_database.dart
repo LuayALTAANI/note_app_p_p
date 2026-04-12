@@ -14,7 +14,7 @@ import 'dao/assets_dao.dart';
 part 'app_database.g.dart';
 
 class Folders extends Table {
-  TextColumn get id => text()(); // UUID, and "root" for root folder
+  TextColumn get id => text()(); 
   TextColumn get parentId => text().nullable()();
   TextColumn get parentItemId => text().nullable()();
   TextColumn get name => text()();
@@ -29,10 +29,9 @@ class Folders extends Table {
 }
 
 class Items extends Table {
-  TextColumn get id => text()(); // UUID
-  TextColumn get folderId => text()(); // points to folder.id ("root" allowed)
+  TextColumn get id => text()(); 
+  TextColumn get folderId => text()(); 
 
-  /// 'note' | 'photo' | 'video' | 'voice' | 'pdf'
   TextColumn get type => text()();
 
   TextColumn get title => text().nullable()();
@@ -44,10 +43,8 @@ class Items extends Table {
 
   TextColumn get mainType => text()();
 
-  /// for note -> text, for media -> assetId OR youtube url (if youtube-only)
   TextColumn get mainData => text()();
 
-  /// NEW: JSON meta (youtubeUrl, playMode, etc.)
   TextColumn get meta => text().nullable()();
 
   @override
@@ -55,13 +52,13 @@ class Items extends Table {
 }
 
 class DetailBlocks extends Table {
-  TextColumn get id => text()(); // UUID
-  TextColumn get itemId => text()(); // points to item.id
-  TextColumn get type => text()(); // 'text' | 'photo' | 'video' | 'voice' | 'pdf' | 'folder'
+  TextColumn get id => text()(); 
+  TextColumn get itemId => text()(); 
+  TextColumn get type => text()(); 
   IntColumn get orderIndex => integer().withDefault(const Constant(0))();
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
-  TextColumn get data => text()(); // for text -> text, for media -> assetId, for folder -> folderId
+  TextColumn get data => text()(); 
   TextColumn get meta => text().nullable()();
 
   @override
@@ -69,8 +66,8 @@ class DetailBlocks extends Table {
 }
 
 class FileAssets extends Table {
-  TextColumn get id => text()(); // UUID
-  TextColumn get path => text()(); // app-private file path
+  TextColumn get id => text()(); 
+  TextColumn get path => text()(); 
   TextColumn get mimeType => text().nullable()();
   DateTimeColumn get createdAt => dateTime()();
   IntColumn get sizeBytes => integer().nullable()();

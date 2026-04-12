@@ -1,4 +1,4 @@
-// lib/ui/screens/item/item_actions.dart
+
 import 'dart:io';
 
 import 'package:drift/drift.dart' hide Column;
@@ -167,11 +167,9 @@ Future<void> addDetailBlock(BuildContext context, AppDatabase db, Item item) asy
   await db.blocksDao.insertMediaBlock(item.id, type, assetId, order);
 }
 
-/// ✅ Main block: change media source for photo/video/pdf/voice.
 Future<void> changeMainMedia(BuildContext context, AppDatabase db, Item item) async {
   if (item.mainType == 'note') return;
 
-  // Helper: delete old asset if it's a local assetId.
   Future<void> deleteOldAssetIfAny(String assetId) async {
     if (assetId.trim().isEmpty) return;
     final old = await db.assetsDao.getById(assetId);
@@ -180,7 +178,6 @@ Future<void> changeMainMedia(BuildContext context, AppDatabase db, Item item) as
     await db.assetsDao.deleteAsset(old.id);
   }
 
-  // PHOTO: replace with another gallery image
   if (item.mainType == 'photo') {
     final picked = await ImagePicker().pickImage(source: ImageSource.gallery);
     if (picked == null) return;
@@ -207,7 +204,6 @@ Future<void> changeMainMedia(BuildContext context, AppDatabase db, Item item) as
     return;
   }
 
-  // PDF: replace with another PDF
   if (item.mainType == 'pdf') {
     final picked = await FilePicker.platform.pickFiles(
       type: FileType.custom,
@@ -239,7 +235,6 @@ Future<void> changeMainMedia(BuildContext context, AppDatabase db, Item item) as
     return;
   }
 
-  // VOICE: re-record
   if (item.mainType == 'voice') {
     final newAssetId = await _recordVoiceAssetId(context, db);
     if (newAssetId == null) return;
@@ -251,7 +246,6 @@ Future<void> changeMainMedia(BuildContext context, AppDatabase db, Item item) as
     return;
   }
 
-  // VIDEO: keep your existing logic (YouTube <-> local) with minor structure.
   if (item.mainType == 'video') {
     final isYoutube = looksLikeHttpUrl(item.mainData);
 
@@ -284,7 +278,6 @@ Future<void> changeMainMedia(BuildContext context, AppDatabase db, Item item) as
         return;
       }
 
-      // local -> youtube: delete old asset
       if (!isYoutube && item.mainData.isNotEmpty) {
         final ok = await showConfirmDialog(
           context,
@@ -321,7 +314,6 @@ Future<void> changeMainMedia(BuildContext context, AppDatabase db, Item item) as
         ),
       );
 
-      // youtube -> local: clear yt meta
       if (isYoutube) {
         await db.itemsDao.updateMainTypeAndData(item.id, 'video', newAssetId);
         await setItemYoutubeUrl(db, item, null);
@@ -330,7 +322,6 @@ Future<void> changeMainMedia(BuildContext context, AppDatabase db, Item item) as
         return;
       }
 
-      // local -> local: replace old asset
       final oldAssetId = item.mainData;
       await db.itemsDao.updateMainTypeAndData(item.id, 'video', newAssetId);
       await deleteOldAssetIfAny(oldAssetId);
@@ -354,7 +345,6 @@ Future<void> deleteItem(
 
   final fm = FileManager();
 
-  // Delete main asset if it is an offline media assetId.
   if (item.mainType != 'note' && item.mainType != 'video' && item.mainData.isNotEmpty) {
     final asset = await db.assetsDao.getById(item.mainData);
     if (asset != null) {

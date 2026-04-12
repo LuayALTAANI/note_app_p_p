@@ -1,4 +1,4 @@
-// lib/ui/widgets/video_player_widget.dart
+
 import 'dart:io';
 
 import 'package:flutter/material.dart';

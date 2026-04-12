@@ -1,4 +1,4 @@
-// lib/ui/widgets/youtube_inline_player.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -107,7 +107,6 @@ class _YoutubeInlinePlayerState extends State<YoutubeInlinePlayer> {
           builder: (context, value, _) {
             final full = value.isFullScreen;
 
-            // ✅ Fullscreen: ONLY the player (no card padding/clipping context).
             if (full) {
               return ColoredBox(
                 color: Colors.black,

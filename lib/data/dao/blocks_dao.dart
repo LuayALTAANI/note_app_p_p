@@ -69,8 +69,6 @@ class BlocksDao extends DatabaseAccessor<AppDatabase> with _$BlocksDaoMixin {
     );
   }
 
-  /// ✅ Fix: detail block accepts video links reliably (no insert+refetch race).
-  /// Inserts a YouTube-only video block: data='' and meta contains youtubeUrl.
   Future<void> insertYoutubeVideoBlock(
     String itemId,
     String youtubeUrl,

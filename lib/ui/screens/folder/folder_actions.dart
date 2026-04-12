@@ -217,7 +217,6 @@ Future<void> importVideo(
     final v = (url ?? '').trim();
     if (v.isEmpty) return;
 
-    // YouTube-only: store url in mainData, meta sets playMode online.
     final itemId = _uuid.v4();
     await db.itemsDao.insertItem(
       ItemsCompanion.insert(

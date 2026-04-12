@@ -1,4 +1,4 @@
-// ui/screens/item/item_details_screen.dart
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -36,7 +36,7 @@ class ItemDetailsScreen extends ConsumerWidget {
           appBar: AppBar(
             title: Text(title),
             actions: [
-              // ✅ Rename moved to top
+              
               IconButton(
                 tooltip: 'Rename',
                 icon: const Icon(Icons.edit),
@@ -49,7 +49,6 @@ class ItemDetailsScreen extends ConsumerWidget {
                 },
               ),
 
-              // ✅ Change source moved to top (works for photo/video/pdf/voice)
               if (item.mainType != 'note')
                 IconButton(
                   tooltip: 'Change source',

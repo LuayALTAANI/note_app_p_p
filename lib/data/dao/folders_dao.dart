@@ -49,8 +49,6 @@ class FoldersDao extends DatabaseAccessor<AppDatabase> with _$FoldersDaoMixin {
     await into(folders).insertOnConflictUpdate(data);
   }
 
-  /// Create a new folder. Use [parentId] for normal nested folders, or [parentItemId]
-  /// when the folder is attached to an Item as a detail block.
   Future<String> createFolder({
     required String name,
     String? parentId,
@@ -75,15 +73,13 @@ class FoldersDao extends DatabaseAccessor<AppDatabase> with _$FoldersDaoMixin {
     return id;
   }
 
-  /// Get folders that belong directly to an Item (detail-block folders).
   Future<List<Folder>> getFoldersForItem(String itemId) {
     return (select(folders)..where((t) => t.parentItemId.equals(itemId))).get();
   }
 
-  /// Delete a folder tree (folder + all descendant folders + all items + all blocks under them).
   Future<void> deleteFolderTree(String rootFolderId) async {
     await transaction(() async {
-      // BFS to collect folder ids
+      
       final allFolderIds = <String>[rootFolderId];
       var cursor = 0;
       while (cursor < allFolderIds.length) {
@@ -96,7 +92,6 @@ class FoldersDao extends DatabaseAccessor<AppDatabase> with _$FoldersDaoMixin {
         }
       }
 
-      // Collect item ids under these folders
       final itemsRows = await (select(
         db.items,
       )..where((t) => t.folderId.isIn(allFolderIds))).get();
@@ -109,7 +104,6 @@ class FoldersDao extends DatabaseAccessor<AppDatabase> with _$FoldersDaoMixin {
         await (delete(db.items)..where((t) => t.id.isIn(itemIds))).go();
       }
 
-      // Delete folders (children first doesn't matter because we're deleting by IN)
       await (delete(folders)..where((t) => t.id.isIn(allFolderIds))).go();
     });
   }
@@ -129,7 +123,7 @@ class FoldersDao extends DatabaseAccessor<AppDatabase> with _$FoldersDaoMixin {
     } else if (sortMode == 'free') {
       q.orderBy([(t) => OrderingTerm.asc(t.orderIndex)]);
     } else {
-      // name
+      
       q.orderBy([(t) => OrderingTerm.asc(t.name)]);
     }
 

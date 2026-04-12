@@ -1,4 +1,4 @@
-// lib/ui/widgets/youtube_focused_player.dart
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -87,7 +87,6 @@ class _YoutubeFocusedPlayerState extends State<YoutubeFocusedPlayer> {
     final wasPlaying = c.value.isPlaying;
     final rate = _safePlaybackRate(c);
 
-    // ✅ prevent overlap echo during handoff
     try {
       c.pause();
     } catch (_) {}
@@ -200,19 +199,16 @@ class _YoutubeFullscreenPageState extends State<_YoutubeFullscreenPage> {
   bool _didApplyStart = false;
   bool _ready = false;
 
-  // Gesture state
   _GestureZone _zone = _GestureZone.none;
   double _startDy = 0;
   double _startValue = 0;
   bool _didExitBySwipe = false;
 
-  // Device state
   final _brightness = ScreenBrightness();
   final _volume = VolumeController.instance;
   double _currentBrightness = 0.5;
   double _currentVolume = 0.5;
 
-  // HUD
   _HudKind _hud = _HudKind.none;
   double _hudValue = 0;
   String _hudText = '';
@@ -369,7 +365,7 @@ class _YoutubeFullscreenPageState extends State<_YoutubeFullscreenPage> {
         body: SafeArea(
           child: Stack(
             children: [
-              // Player
+              
               Center(
                 child: AspectRatio(
                   aspectRatio: 16 / 9,
@@ -417,7 +413,6 @@ class _YoutubeFullscreenPageState extends State<_YoutubeFullscreenPage> {
                 ),
               ),
 
-              // ✅ Gesture layer (only handles vertical drags; taps still go to player controls)
               Positioned.fill(
                 child: GestureDetector(
                   behavior: HitTestBehavior.translucent,
@@ -443,7 +438,6 @@ class _YoutubeFullscreenPageState extends State<_YoutubeFullscreenPage> {
 
                     final dy = d.globalPosition.dy - _startDy;
 
-                    // ✅ Middle swipe down to exit
                     if (_zone == _GestureZone.middle && !_didExitBySwipe) {
                       if (dy > 120) {
                         _didExitBySwipe = true;
@@ -452,8 +446,7 @@ class _YoutubeFullscreenPageState extends State<_YoutubeFullscreenPage> {
                       return;
                     }
 
-                    // Up = increase, Down = decrease
-                    final delta = (-dy / h) * 1.6; // sensitivity
+                    final delta = (-dy / h) * 1.6; 
                     final next = (_startValue + delta).clamp(0.0, 1.0);
 
                     if (_zone == _GestureZone.right) {
@@ -469,7 +462,6 @@ class _YoutubeFullscreenPageState extends State<_YoutubeFullscreenPage> {
                 ),
               ),
 
-              // Close button
               Positioned(
                 top: 6,
                 left: 6,
@@ -480,7 +472,6 @@ class _YoutubeFullscreenPageState extends State<_YoutubeFullscreenPage> {
                 ),
               ),
 
-              // HUD
               if (_hud != _HudKind.none)
                 Center(
                   child: Container(
@@ -506,7 +497,6 @@ class _YoutubeFullscreenPageState extends State<_YoutubeFullscreenPage> {
                   ),
                 ),
 
-              // Handoff veil while seek+rate applied
               if (!_ready)
                 const Positioned.fill(
                   child: IgnorePointer(

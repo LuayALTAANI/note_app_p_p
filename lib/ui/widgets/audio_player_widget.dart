@@ -20,10 +20,8 @@ class AudioPlayerWidget extends StatefulWidget {
 
   final File file;
 
-  /// Compact UI: smaller paddings + smaller waveform/slider height.
   final bool compact;
 
-  /// Show elapsed + total time (in the same row).
   final bool showTimes;
 
   static Future<bool> recordToFile(
@@ -72,7 +70,7 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
 
     _stateSub = _player.playerStateStream.listen((s) async {
       if (s.processingState == ProcessingState.completed) {
-        // Requirement: snap back to 0 and pause at end.
+        
         await _player.pause();
         await _player.seek(Duration.zero);
       }
@@ -157,7 +155,6 @@ class _AudioPlayerWidgetState extends State<AudioPlayerWidget> {
                         builder: (context, wfSnap) {
                           final wf = wfSnap.data;
 
-                          // Taller waveform (per your request)
                           final h = widget.compact ? 34.0 : 52.0;
 
                           if (wf == null) {
@@ -286,7 +283,6 @@ class _WaveformPainter extends CustomPainter {
 
     final centerY = size.height / 2;
 
-    // Bigger wave peaks (per your request), but keep a bit of padding to avoid clipping.
     final amp = size.height * (compact ? 0.60 : 0.62);
 
     final stepX = size.width / pixels;
@@ -294,7 +290,7 @@ class _WaveformPainter extends CustomPainter {
 
     final playedPaint = Paint()
       ..color = theme.colorScheme.primary
-      // Slightly thicker strokes to look "bigger".
+      
       ..strokeWidth = compact ? 2.0 : 2.6
       ..strokeCap = StrokeCap.round;
 
@@ -308,7 +304,6 @@ class _WaveformPainter extends CustomPainter {
         final minS = data[i * 2].toDouble();
         final maxS = data[i * 2 + 1].toDouble();
 
-        // 16-bit PCM min/max.
         final minN = (minS / 32768.0).clamp(-1.0, 1.0);
         final maxN = (maxS / 32768.0).clamp(-1.0, 1.0);
 
@@ -354,7 +349,7 @@ Future<Waveform?> _loadOrCreateWaveform(File audioFile) async {
         waveOutFile: out,
         zoom: const WaveformZoom.pixelsPerSecond(90),
       )) {
-        // progress stream (ignored)
+        
       }
     }
 

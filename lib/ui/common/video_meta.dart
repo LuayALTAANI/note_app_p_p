@@ -88,18 +88,15 @@ String? tryExtractYoutubeId(String url) {
 
   final host = (uri.host).toLowerCase();
 
-  // youtu.be/<id>
   if (host.contains('youtu.be')) {
     final seg = uri.pathSegments;
     if (seg.isNotEmpty) return seg.first;
   }
 
-  // youtube.com/watch?v=<id>
   if (host.contains('youtube.com')) {
     final v = uri.queryParameters['v'];
     if (v != null && v.isNotEmpty) return v;
 
-    // youtube.com/embed/<id>, /shorts/<id>
     final seg = uri.pathSegments;
     final embedIdx = seg.indexOf('embed');
     if (embedIdx != -1 && embedIdx + 1 < seg.length) return seg[embedIdx + 1];

@@ -1,4 +1,3 @@
-// lib/ui/screens/item/widgets/media_preview.dart
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -10,6 +9,7 @@ import 'package:note_app_pp/ui/common/video_meta.dart';
 import 'package:note_app_pp/ui/screens/local_video_screen.dart';
 import 'package:note_app_pp/ui/widgets/audio_player_widget.dart';
 import 'package:note_app_pp/ui/widgets/youtube_focused_player.dart';
+import 'package:note_app_pp/ui/screens/media_viewer_screen.dart';
 import 'preview_widget.dart';
 
 class MediaPreview extends ConsumerWidget {
@@ -44,7 +44,6 @@ class MediaPreview extends ConsumerWidget {
           );
         }
 
-        // ✅ Separate LOCAL video flow: always opens full-screen player.
         if (item.mainType == 'video') {
           return InkWell(
             onTap: () => Navigator.push(
@@ -62,7 +61,18 @@ class MediaPreview extends ConsumerWidget {
         }
 
         return InkWell(
-          onTap: () {},
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => MediaViewerScreen(
+                  title: title,
+                  type: item.mainType,
+                  filePath: path,
+                ),
+              ),
+            );
+          },
           child: SizedBox(
             height: 220,
             child: PreviewWidget(type: item.mainType, path: path),
